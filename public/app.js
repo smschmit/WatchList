@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.2';
+const APP_VERSION = '0.1.3';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -213,7 +213,7 @@ function render() {
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
   const main = document.getElementById('main');
-  const views = { browse: viewBrowse, list: viewList, show: viewShow, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink };
+  const views = { browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink };
   main.replaceChildren((views[r.name] || viewBrowse)(r));
   if (r.name === 'account' && window.cloud && window.cloud.renderAccount) window.cloud.renderAccount();
 }
@@ -593,14 +593,20 @@ function tmdbPicker(initial, type, year, onPick) {
     results.replaceChildren(el('p', { class: 'muted' }, 'Searching…'));
     try {
       const hits = await searchTmdb(input.value, typeSel.value);
-      results.replaceChildren(...hits.slice(0, 10).map((h) => el('button', { class: 'tmdb-hit', onclick: () => onPick(h) },
-        poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`,
-          el('div', { class: 'muted small clamp' }, h.overview)))));
+      results.replaceChildren(...hits.slice(0, 10).map((h) => tmdbHit(h, { onclick: () => onPick(h) })));
       if (!hits.length) results.append(el('p', { class: 'muted' }, 'No results.'));
     } catch (e) { results.replaceChildren(el('p', { class: 'muted' }, e.message)); }
   }
   box.append(el('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); run(); } }, input, typeSel, el('button', { class: 'btn' }, 'Search')), results);
   return box;
+}
+// One TMDB search result. The card does the page's action (pick / link); "Details" opens the title's own page.
+function tmdbHit(h, { onclick, picked = false } = {}) {
+  return el('div', { class: `tmdb-hit-wrap${picked ? ' picked' : ''}` },
+    el('button', { class: `tmdb-hit${picked ? ' picked' : ''}`, 'aria-pressed': picked ? 'true' : null, onclick },
+      poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`,
+        el('div', { class: 'muted small clamp' }, h.overview))),
+    el('a', { class: 'hit-details small', href: titleHash(h) }, 'Details'));
 }
 async function searchTmdb(query, type) {
   const d = await tmdb(`/search/${type}`, { query, include_adult: 'false' });
@@ -637,8 +643,11 @@ function splitGenres(gs) {
   }
   return out;
 }
-async function detailsToShow(t) {
-  const d = await tmdb(`/${t.type}/${t.id}`);
+function getDetails(t) {
+  return cached(`details:${t.type}:${t.id}`, () => tmdb(`/${t.type}/${t.id}`));
+}
+async function detailsToShow(t, d) {
+  d = d || await getDetails(t);
   if (t.type === 'tv') {
     const ended = /ended|canceled/i.test(d.status || '');
     return {
@@ -691,6 +700,49 @@ async function addFromTmdb(t, extra = {}) {
   return s;
 }
 
+// ---------- Title page (a TMDB title that may not be on the list yet) ----------
+function viewTitle(r) {
+  const m = /^(tv|movie)-(\d+)$/.exec(r.id || '');
+  if (!m) return el('p', { class: 'muted' }, 'Title not found. ', el('a', { href: '#/' }, 'Back to browse'));
+  const t = { type: m[1], id: Number(m[2]) };
+  const mine = listShowFor(t);
+  if (mine) { setTimeout(() => go(`#/show/${encodeURIComponent(mine.id)}`)); return el('div'); }
+  const src = r.params.get('src');
+  const wrap = el('div', { class: 'show-page' });
+  const head = el('div', { class: 'show-head' }, poster(null, 'w342', 'poster big'),
+    el('div', { class: 'show-head-body' }, el('h1', {}, 'Loading…')));
+  wrap.append(head);
+  getDetails(t).then(async (d) => {
+    const info = normShow(await detailsToShow(t, d));
+    const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: async () => {
+      addBtn.disabled = true;
+      const s = await addFromTmdb(t, src ? { sources: [src] } : {});
+      if (s) { toast(`Added ${s.title}`); history.replaceState(null, '', `#/show/${encodeURIComponent(s.id)}`); lastHash = location.hash; render(); }
+      else addBtn.disabled = false;
+    } }, '+ Add to my list');
+    head.replaceChildren(poster(d.poster_path, 'w342', 'poster big'), el('div', { class: 'show-head-body' },
+      el('h1', {}, info.title),
+      el('p', { class: 'muted' }, metaLine(info)),
+      info.showStatus || info.country ? el('p', { class: 'small' },
+        [info.showStatus && `Show status: ${info.showStatus}`, [info.country, info.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
+      info.genres.length ? el('p', { class: 'small' }, info.genres.join(' · ')) : null,
+      d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null,
+      d.overview ? el('p', {}, d.overview) : null,
+      el('p', { class: 'muted small' }, 'Not on your list yet.'),
+      el('div', { class: 'btn-row' }, addBtn,
+        el('a', { class: 'btn ghost', href: `https://www.themoviedb.org/${t.type}/${t.id}`, target: '_blank', rel: 'noopener' }, 'View on TMDB'))));
+  }).catch((e) => head.replaceChildren(el('p', { class: 'muted' }, e.message)));
+  const sec = el('section', { class: 'card cast' }, el('h2', {}, 'Cast'));
+  const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));
+  sec.append(grid);
+  getCast(t).then((cast) => {
+    grid.replaceChildren(...cast.map((c) => personTile(c, c.character + (c.episodes ? ` · ${c.episodes} ep` : ''))));
+    if (!cast.length) grid.append(el('p', { class: 'muted' }, 'No cast listed on TMDB.'));
+  }).catch((e) => grid.replaceChildren(el('p', { class: 'muted' }, e.message)));
+  wrap.append(sec);
+  return wrap;
+}
+
 // ---------- Actor page ----------
 function viewActor(r) {
   const pid = Number(r.id);
@@ -738,9 +790,10 @@ function viewActor(r) {
           const s = await addFromTmdb({ id: c.id, type: c.type }, { sources: [`Actor: ${p.name}`] });
           if (s) { toast(`Added ${s.title}`, { label: 'Open', run: () => go(`#/show/${s.id}`) }); fill(); updateCount(); } else e.target.disabled = false;
         } }, '+ Add');
-      return el('div', { class: `credit ${mine ? 'mine' : ''}` }, poster(c.poster),
+      const href = titleHash(c, `Actor: ${p.name}`);
+      return el('div', { class: `credit ${mine ? 'mine' : ''}` }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
         el('div', { class: 'credit-body' },
-          el('div', {}, el('b', {}, c.title), ` ${c.year || ''} · ${c.type === 'tv' ? 'TV' : 'Movie'}`),
+          el('div', {}, el('a', { class: 'credit-title', href }, el('b', {}, c.title)), ` ${c.year || ''} · ${c.type === 'tv' ? 'TV' : 'Movie'}`),
           el('div', { class: 'muted small' }, [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · '))),
         action);
     }
@@ -748,6 +801,11 @@ function viewActor(r) {
     fill();
   }).catch((e) => body.replaceChildren(el('p', { class: 'muted' }, e.message)));
   return wrap;
+}
+function titleHash(t, src) {
+  const mine = listShowFor(t);
+  if (mine) return `#/show/${encodeURIComponent(mine.id)}`;
+  return `#/title/${t.type}-${t.id}${src ? `?src=${encodeURIComponent(src)}` : ''}`;
 }
 function listShowFor(c) {
   return state.shows.find((s) => s.tmdb && s.tmdb.id === c.id && s.tmdb.type === c.type);
@@ -776,11 +834,8 @@ function viewActors() {
 function viewAdd() {
   const wrap = el('div', { class: 'add-page card' }, el('h1', {}, 'Add a show or movie'));
   if (readOnly) return wrap.append(el('p', { class: 'muted' }, 'View only.')), wrap;
-  wrap.append(el('p', { class: 'muted small' }, 'Pick it from TMDB and the details fill in automatically.'),
-    tmdbPicker('', 'multi', null, async (hit) => {
-      const s = await addFromTmdb(hit);
-      if (s) { toast(`Added ${s.title}`); go(`#/show/${s.id}`); }
-    }));
+  wrap.append(el('p', { class: 'muted small' }, 'Search TMDB and tap a result to see its details. Add it from there and the details fill in automatically.'),
+    tmdbPicker('', 'multi', null, (hit) => go(titleHash(hit))));
   const title = el('input', { placeholder: 'Title', 'aria-label': 'Title' });
   wrap.append(el('h2', {}, 'Not on TMDB?'), el('form', { class: 'row', onsubmit: (e) => {
     e.preventDefault();
@@ -796,6 +851,9 @@ function viewAdd() {
 
 // ---------- Link the list to TMDB ----------
 let linker = null; // { running, done, total, auto, review }
+// Link-page picks wait here until "Save picks", so several shows can be linked in one go.
+// Kept outside the view so they survive opening a title's Details and coming back.
+const picks = new Map(); // showId -> { id, type, poster } or { none: true }
 function loadReview() { try { return JSON.parse(localStorage.getItem(REVIEW_KEY) || '[]'); } catch { return []; } }
 function saveReview(r) { try { localStorage.setItem(REVIEW_KEY, JSON.stringify(r)); } catch {} }
 function scoreHit(s, h) {
@@ -867,8 +925,6 @@ function viewLink() {
         : el('button', { class: 'btn primary', disabled: !left, onclick: () => runLinker(update) }, left ? `Match ${left} titles` : waiting ? 'Everything else is checked' : 'Everything is linked'));
     if (!linker || !linker.running) renderReview();
   }
-  // Picks wait here until "Save picks", so several shows can be linked in one go.
-  const picks = new Map(); // showId -> { id, type, poster } or { none: true }
   const pickBar = el('div', { class: 'pick-bar' });
   function renderPickBar() {
     pickBar.hidden = !picks.size;
@@ -909,9 +965,7 @@ function viewLink() {
           el('button', { class: 'btn small ghost', onclick: () => go(`#/show/${s.id}`) }, 'Search myself')),
         el('div', { class: 'tmdb-results' }, r.candidates.length ? r.candidates.map((h) => {
           const on = !!(pick && pick.id === h.id && pick.type === h.type);
-          return el('button', { class: `tmdb-hit${on ? ' picked' : ''}`, 'aria-pressed': String(on),
-            onclick: () => togglePick(s.id, { id: h.id, type: h.type, poster: h.poster }, (p) => p.id === h.id && p.type === h.type) },
-            poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`, el('div', { class: 'muted small clamp' }, h.overview)));
+          return tmdbHit(h, { picked: on, onclick: () => togglePick(s.id, { id: h.id, type: h.type, poster: h.poster }, (p) => p.id === h.id && p.type === h.type) });
         }) : el('p', { class: 'muted small' }, 'No results.'))));
     }
     if (review.length > 40) reviewBox.append(el('p', { class: 'muted' }, `${review.length - 40} more after these.`));
