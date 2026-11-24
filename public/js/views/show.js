@@ -1,0 +1,115 @@
+// A show on the list: details, pickers, notes, edit dialog, cast.
+import { toNum, el, toast, uniq } from '../util.js';
+import { state, readOnly, save, canEdit, showById } from '../state.js';
+import { isMovie } from '../shows.js';
+import { getCast, getDetails } from '../tmdb.js';
+import { linkShow, fillFromTmdb } from '../library.js';
+import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
+
+export function viewShow(r) {
+  const s = showById(r.id);
+  if (!s) return el('p', { class: 'muted' }, 'Show not found. ', el('a', { href: '#/' }, 'Back to browse'));
+  const wrap = el('div', { class: 'show-page' });
+  const field = (key, label) => {
+    const sel = el('select', { disabled: readOnly, onchange: () => { if (!canEdit()) return; s[key] = sel.value; save({ quiet: true }); toast('Saved'); } },
+      SELECTS[key]().map((v) => el('option', { value: v, selected: v === s[key] }, v || '—')));
+    return el('label', { class: 'field' }, label, sel);
+  };
+  const notes = el('textarea', { rows: 3, readOnly, placeholder: 'Notes' }, s.notes);
+  notes.addEventListener('change', () => { if (!canEdit()) return; s.notes = notes.value; save({ quiet: true }); toast('Saved'); });
+
+  const chips = (cat, list) => el('div', { class: 'chips' }, list.map((v) => chipLink(cat, v)));
+  wrap.append(el('div', { class: 'show-head' },
+    poster(s.tmdb && s.tmdb.poster, 'w342', 'poster big'),
+    el('div', { class: 'show-head-body' },
+      el('h1', {}, s.title),
+      el('p', { class: 'muted' }, metaLine(s)),
+      s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
+        [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
+      chips('genre', s.genres), chips('tag', s.tags),
+      descriptionBox(s),
+      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
+      el('label', { class: 'field wide' }, 'Notes', notes),
+      s.researchNotes ? el('p', { class: 'small muted' }, `Research notes: ${s.researchNotes}`) : null,
+      s.sources.length ? el('p', { class: 'small muted' }, `Source: ${s.sources.join(', ')}`) : null,
+      el('div', { class: 'btn-row edit-only' },
+        el('button', { class: 'btn', onclick: () => openEdit(s) }, 'Edit details'),
+        s.tmdb && s.tmdb.id ? el('button', { class: 'btn', onclick: () => fillFromTmdb(s) }, 'Fill blanks from TMDB') : null,
+        el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
+  wrap.append(castSection(s));
+  return wrap;
+}
+// TMDB's summary, collapsed so it doesn't push the pickers and notes down.
+export function descriptionBox(s) {
+  if (!s.tmdb || !s.tmdb.id) return null;
+  const box = el('details', { class: 'description', hidden: true });
+  getDetails(s.tmdb).then((d) => {
+    if (!d.overview) return;
+    box.append(el('summary', {}, 'Description'), d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null, el('p', {}, d.overview));
+    box.hidden = false;
+  }).catch(() => {});
+  return box;
+}
+export function deleteShow(s) {
+  if (!canEdit() || !confirm(`Delete “${s.title}” from your list?`)) return;
+  const i = state.shows.indexOf(s);
+  state.shows.splice(i, 1);
+  save({ quiet: true });
+  history.back();
+  toast(`Deleted ${s.title}`, { label: 'Undo', run: () => { state.shows.splice(i, 0, s); save(); } });
+}
+
+export const EDIT_FIELDS = [
+  ['title', 'Title'], ['format', 'Format'], ['year', 'Release year', 'number'], ['endYear', 'End year', 'number'],
+  ['seasons', 'Seasons', 'number'], ['episodes', 'Episodes', 'number'], ['epLength', 'Episode length (min)', 'number'],
+  ['showStatus', 'Show status'], ['genres', 'Genres (comma-separated)', 'list'], ['structure', 'Structure'],
+  ['country', 'Country'], ['languages', 'Languages (comma-separated)', 'list'], ['tags', 'Tags (comma-separated)', 'list'],
+  ['network', 'Network / platform'], ['sources', 'Source (comma-separated)', 'list'], ['confidence', 'Research confidence'],
+  ['researchNotes', 'Research notes'],
+];
+export function openEdit(s) {
+  if (!canEdit()) return;
+  const dlg = el('dialog', { class: 'edit-dialog' });
+  const form = el('form', { method: 'dialog', class: 'edit-form' },
+    el('h2', {}, `Edit ${s.title}`),
+    EDIT_FIELDS.map(([k, label, type]) => el('label', { class: 'field' }, label,
+      el('input', { name: k, type: type === 'number' ? 'number' : 'text', value: type === 'list' ? s[k].join(', ') : s[k] ?? '',
+        list: ['format', 'showStatus', 'structure', 'network', 'country', 'confidence'].includes(k) ? `dl-${k}` : null }))),
+    ['format', 'showStatus', 'structure', 'network', 'country', 'confidence'].map((k) =>
+      el('datalist', { id: `dl-${k}` }, uniq(state.shows.map((x) => x[k])).filter(Boolean).sort().map((v) => el('option', { value: v })))),
+    el('div', { class: 'btn-row' },
+      el('button', { class: 'btn primary', value: 'save' }, 'Save'),
+      el('button', { class: 'btn', value: 'cancel', formnovalidate: true }, 'Cancel')));
+  dlg.append(form);
+  dlg.addEventListener('close', () => {
+    if (dlg.returnValue === 'save') {
+      for (const [k, , type] of EDIT_FIELDS) {
+        const v = form.elements[k].value.trim();
+        s[k] = type === 'number' ? toNum(v) : type === 'list' ? v.split(',').map((x) => x.trim()).filter(Boolean) : v;
+      }
+      if (!s.title) s.title = 'Untitled';
+      save();
+      toast('Saved');
+    }
+    dlg.remove();
+  });
+  document.body.append(dlg);
+  dlg.showModal();
+}
+
+export function castSection(s) {
+  const sec = el('section', { class: 'card cast' }, el('h2', {}, 'Cast'));
+  if (!s.tmdb || !s.tmdb.id) {
+    sec.append(el('p', { class: 'muted small' }, s.tmdb && s.tmdb.none ? 'Marked as not on TMDB.' : 'Link this title to TMDB to see its cast.'));
+    if (!readOnly) sec.append(tmdbPicker(s.title, isMovie(s) ? 'movie' : 'tv', s.year, (hit) => linkShow(s, hit)));
+    return sec;
+  }
+  const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));
+  sec.append(grid);
+  getCast(s.tmdb).then((cast) => {
+    grid.replaceChildren(...cast.map((c) => personTile(c, c.character + (c.episodes ? ` · ${c.episodes} ep` : ''))));
+    if (!cast.length) grid.append(el('p', { class: 'muted' }, 'No cast listed on TMDB.'));
+  }).catch((e) => grid.replaceChildren(el('p', { class: 'muted' }, e.message)));
+  if (!readOnly) sec.append(el('button', { class: 'btn small ghost', onclick: () => { if (canEdit() && confirm('Unlink from TMDB?')) { s.tmdb = null; save(); } } }, 'Wrong show? Unlink from TMDB'));
+  return sec;
+}

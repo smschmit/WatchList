@@ -1,0 +1,97 @@
+// Filtered, sorted list of shows.
+import { el } from '../util.js';
+import { state } from '../state.js';
+import { CATS, catByKey, counts, SORTS, applyFilters } from '../categories.js';
+import { go, listHash, filtersFrom } from '../router.js';
+import { emptyState, statusClass, showCard } from '../ui.js';
+
+export function viewList(r) {
+  if (!state.shows.length) return emptyState();
+  const filters = filtersFrom(r.params);
+  const q = r.params.get('q') || '';
+  const sort = SORTS[r.params.get('sort')] ? r.params.get('sort') : 'title';
+  const results = applyFilters(state.shows, filters, q).sort(SORTS[sort][1]);
+  const wrap = el('div', { class: 'list-view' });
+
+  const bar = el('div', { class: 'filter-bar' });
+  for (const f of filters) {
+    const rest = filters.filter((x) => x !== f);
+    bar.append(el('a', { class: `chip active ${f.not ? 'excluded' : f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
+      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
+  }
+  if (q) bar.append(el('a', { class: 'chip active', href: listHash(filters, '', sort) }, `“${q}”`, el('span', { class: 'x' }, '×')));
+  const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
+  bar.append(addBtn);
+  if (filters.length || q) bar.append(el('a', { class: 'btn small ghost', href: '#/list' }, 'Clear'));
+  const sel = el('select', { 'aria-label': 'Sort', onchange: () => go(listHash(filters, q, sel.value)) },
+    Object.entries(SORTS).map(([k, [label]]) => el('option', { value: k, selected: k === sort }, label)));
+  bar.append(el('span', { class: 'spacer' }), el('span', { class: 'muted' }, `${results.length} of ${state.shows.length}`), sel);
+  wrap.append(bar);
+
+  // Filter picker: pick several values (in any columns), then Apply. Tap once to include, again to exclude, again to clear.
+  const picker = el('div', { class: 'picker card', hidden: true });
+  function togglePicker() {
+    picker.hidden = !picker.hidden;
+    if (picker.hidden || picker.childElementCount) return;
+    const pending = new Map(filters.map((f) => [`${f.cat}\u0000${f.value}`, f]));
+    const catSel = el('select', { 'aria-label': 'Column' }, CATS.map((c) => el('option', { value: c.key }, c.label)));
+    const chips = el('div', { class: 'chips' });
+    const applyBtn = el('button', { class: 'btn small primary', onclick: () => go(listHash([...pending.values()], q, sort)) }, 'Apply');
+    const status = el('span', { class: 'muted small' });
+    const refresh = () => {
+      const n = [...pending.values()];
+      const changed = n.length !== filters.length || filters.some((f) => { const p = pending.get(`${f.cat}\u0000${f.value}`); return !p || !!p.not !== !!f.not; });
+      applyBtn.disabled = !changed;
+      status.textContent = n.length ? `${n.length} selected` : '';
+    };
+    const fill = () => {
+      const cat = catByKey[catSel.value];
+      // Within the same column, values combine with OR, so count against results without that column's filters.
+      const base = applyFilters(state.shows, filters.filter((f) => f.cat !== cat.key), q);
+      const entries = counts(cat, base);
+      for (const f of pending.values()) if (f.cat === cat.key && !entries.some(([v]) => v === f.value)) entries.push([f.value, 0]);
+      chips.replaceChildren(...entries.map(([v, n]) => {
+        const key = `${cat.key}\u0000${v}`;
+        const cur = pending.get(key);
+        const mode = cur ? (cur.not ? 'exc' : 'inc') : 'off';
+        return el('button', { class: `chip pick-${mode}`, 'aria-pressed': mode === 'off' ? 'false' : 'true',
+          title: mode === 'off' ? 'Tap to include' : mode === 'inc' ? 'Tap to exclude' : 'Tap to clear',
+          onclick: () => {
+            if (mode === 'off') pending.set(key, { cat: cat.key, value: v });
+            else if (mode === 'inc') pending.set(key, { cat: cat.key, value: v, not: true });
+            else pending.delete(key);
+            fill(); refresh();
+          } },
+          mode === 'inc' ? el('span', { class: 'mark' }, '✓') : mode === 'exc' ? el('span', { class: 'mark' }, '✕') : null,
+          v, el('span', { class: 'count' }, n));
+      }));
+      if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing here.'));
+    };
+    catSel.onchange = fill;
+    picker.append(
+      el('div', { class: 'row' }, el('label', { class: 'inline' }, 'Filter by ', catSel)),
+      el('p', { class: 'muted small' }, 'Tap values to pick as many as you like: once to include (✓), twice to exclude (✕), three times to clear. You can switch columns and keep picking.'),
+      chips,
+      el('div', { class: 'row picker-actions' }, status, el('span', { class: 'spacer' }),
+        el('button', { class: 'btn small ghost', onclick: () => { pending.clear(); fill(); refresh(); } }, 'Clear all'),
+        el('button', { class: 'btn small', onclick: () => { picker.hidden = true; picker.replaceChildren(); } }, 'Cancel'),
+        applyBtn));
+    fill();
+    refresh();
+  }
+  wrap.append(picker);
+
+  const list = el('div', { class: 'show-list' });
+  const PAGE = 150;
+  let shown = 0;
+  const more = el('button', { class: 'btn', onclick: () => page() }, 'Show more');
+  function page() {
+    results.slice(shown, shown + PAGE).forEach((s) => list.append(showCard(s)));
+    shown += PAGE;
+    more.hidden = shown >= results.length;
+  }
+  page();
+  wrap.append(list, more);
+  if (!results.length) wrap.append(el('p', { class: 'muted' }, 'No shows match.'));
+  return wrap;
+}

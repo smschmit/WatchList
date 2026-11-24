@@ -72,10 +72,14 @@ TMDB lookups go through the Netlify function, which doesn't run under a plain fi
 
 ## Files
 
-- `public/index.html`, `public/app.js`, `public/styles.css`: the app
-- `public/cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
+- `public/index.html`, `public/styles.css`: the page and its styles
+- `public/js/`: the app, as native ES modules (no build step). `main.js` starts everything.
+  - `state.js`: the list, loading, saving; `shows.js`: facts worked out from a show; `categories.js`: browse columns, filters, sorting
+  - `router.js`: hash routes and rendering; `ui.js`: shared pieces (show cards, status menu, TMDB search)
+  - `tmdb.js`: TMDB lookups and caching; `library.js`: changes that come from TMDB (link, fill in, add, favorite actors)
+  - `views/`: one file per page; `cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
 - `public/config.js`: Supabase project URL, publishable key, owner email
-- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in app.js when you change files)
+- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in `js/version.js` when you change files, and add any new file to `ASSETS`)
 - `netlify/functions/tmdb.mjs`: TMDB proxy (keeps the token secret; signed-in users only; only the lookups the app uses)
 - `netlify/functions/sheet-export.mjs`: sends the list to the Apps Script (owner only)
 - `netlify/lib/auth.mjs`: checks the Supabase sign-in for both functions
