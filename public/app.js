@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.9';
+const APP_VERSION = '0.1.10';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -268,7 +268,44 @@ function statusSelect(s) {
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
     } },
     uniq(['', ...SELECTS.status()]).map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+  // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
+  sel.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
+    e.preventDefault();
+    openStatusMenu(sel, e.clientX, e.clientY);
+  });
   return sel;
+}
+// A pill menu placed so the current status sits right under the mouse.
+function openStatusMenu(sel, x, y) {
+  document.querySelector('.status-menu')?.remove();
+  const close = () => { menu.remove(); document.removeEventListener('mousedown', outside, true); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); document.removeEventListener('keydown', key, true); };
+  const pick = (v) => { close(); if (v !== sel.value) { sel.value = v; sel.dispatchEvent(new Event('change')); } sel.focus(); };
+  const items = [...sel.options].map((o) => el('button', { type: 'button', role: 'menuitem',
+    class: `pill status-menu-item ${statusClass(o.value)} ${o.value === sel.value ? 'current' : ''}`, onclick: () => pick(o.value) }, o.textContent));
+  const menu = el('div', { class: 'status-menu', role: 'menu' }, items);
+  document.body.append(menu);
+  const cur = items[sel.selectedIndex] || items[0];
+  const mh = menu.offsetHeight, mw = menu.offsetWidth;
+  const vh = innerHeight, vw = innerWidth;
+  let top = y - (cur.offsetTop + cur.offsetHeight / 2);
+  let left = x - Math.min(cur.offsetWidth / 2, 24);
+  top = Math.max(4, Math.min(top, vh - mh - 4));
+  left = Math.max(4, Math.min(left, vw - mw - 4));
+  Object.assign(menu.style, { top: `${top}px`, left: `${left}px` });
+  cur.focus({ preventScroll: true });
+  const outside = (e) => { if (!menu.contains(e.target)) close(); };
+  const key = (e) => {
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); close(); sel.focus(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
+  };
+  setTimeout(() => {
+    document.addEventListener('mousedown', outside, true);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    document.addEventListener('keydown', key, true);
+  });
 }
 function statusClass(v) {
   if (/^(re)?watching/i.test(v)) return 'st-watching';
