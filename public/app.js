@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.10';
+const APP_VERSION = '0.1.11';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -116,6 +116,30 @@ const today = () => new Date().toISOString().slice(0, 10);
 const STATUS_ORDER = ['Watching', 'Rewatching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
   'Paused Between Seasons', 'Waiting for Series End', 'Identified', 'Recommended', 'Finished', 'Dropped', 'Some'];
 const WANT_ORDER = ['A lot', 'Yes', "Once it's finished", 'Maybe'];
+
+// Status options: names, colors and order are editable (#/statuses) and saved in state.statusSettings.list.
+// Until edited, the list is STATUS_ORDER with the colors the app always used.
+const STATUS_COLORS = { blue: 'Blue', green: 'Green', teal: 'Teal', purple: 'Purple', pink: 'Pink', red: 'Red',
+  orange: 'Orange', yellow: 'Yellow', brown: 'Brown', gray: 'Gray', none: 'No color' };
+function defaultStatusColor(v) {
+  if (/^(re)?watching/i.test(v)) return 'green';
+  if (/^want/i.test(v)) return 'blue';
+  if (/finished/i.test(v)) return 'gray';
+  if (/recommended/i.test(v)) return 'purple';
+  if (/paused|waiting|restart/i.test(v)) return 'orange';
+  if (/dropped/i.test(v)) return 'red';
+  return 'none';
+}
+// Every status: the saved list in order, then any status a show has that isn't in it.
+function statusList() {
+  const saved = state.statusSettings && Array.isArray(state.statusSettings.list) ? state.statusSettings.list : null;
+  const list = (saved || STATUS_ORDER.map((name) => ({ name, color: defaultStatusColor(name) })))
+    .filter((x) => x && x.name).map((x) => ({ name: x.name, color: STATUS_COLORS[x.color] ? x.color : 'none' }));
+  const have = new Set(list.map((x) => x.name));
+  for (const sh of state.shows) if (sh.status && !have.has(sh.status)) { have.add(sh.status); list.push({ name: sh.status, color: defaultStatusColor(sh.status) }); }
+  return list;
+}
+const statusNames = () => statusList().map((x) => x.name);
 function bucket(v, edges) {
   if (v == null) return '';
   for (const [max, label] of edges) if (v < max) return label;
@@ -128,7 +152,7 @@ const SEASON_EDGES = [[2, '1 season'], [4, '2–3 seasons'], [7, '4–6 seasons'
 let actorIndex = new Map(); // "tv:123" -> [actor names], rebuilt on render
 function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }
 const CATS = [
-  { key: 'status', label: 'My status', get: (s) => s.status, order: STATUS_ORDER },
+  { key: 'status', label: 'My status', get: (s) => s.status, get order() { return statusNames(); } },
   { key: 'want', label: 'Want to watch?', get: (s) => s.want, order: WANT_ORDER, hideBlank: true },
   { key: 'recommend', label: 'Use to recommend similar', get: (s) => s.recommend, order: ['Top 50', 'Yes'], hideBlank: true },
   { key: 'actor', label: 'Favorite actors', get: favNamesFor, multi: true, hideBlank: true },
@@ -205,6 +229,7 @@ window.addEventListener('hashchange', () => {
 
 // ---------- Render ----------
 function render() {
+  statusColors = new Map(statusList().map((x) => [x.name, x.color]));
   actorIndex = new Map();
   for (const a of state.actors) for (const c of a.credits) {
     const k = `${c.type}:${c.id}`;
@@ -216,7 +241,7 @@ function render() {
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
   const main = document.getElementById('main');
-  const views = { browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink };
+  const views = { browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink, statuses: viewStatuses };
   main.replaceChildren((views[r.name] || viewBrowse)(r));
   if (r.name === 'account' && window.cloud && window.cloud.renderAccount) window.cloud.renderAccount();
 }
@@ -241,7 +266,7 @@ function viewBrowse() {
     }
     const shown = cat.top ? entries.slice(0, cat.top) : entries;
     const sec = el('section', { class: 'cat card' },
-      el('h2', {}, cat.label),
+      el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null),
       el('div', { class: 'chips' }, shown.map(([v, n]) => chipLink(cat.key, v, n))));
     if (cat.top && entries.length > cat.top) {
       const more = el('button', { class: 'btn small', onclick: () => {
@@ -267,7 +292,7 @@ function statusSelect(s) {
       s.status = sel.value; sel.className = `pill status-select ${statusClass(s.status)}`;
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
     } },
-    uniq(['', ...SELECTS.status()]).map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+    SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
   // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
   sel.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
@@ -307,14 +332,11 @@ function openStatusMenu(sel, x, y) {
     document.addEventListener('keydown', key, true);
   });
 }
+let statusColors = new Map(); // status name -> color key, rebuilt on render
 function statusClass(v) {
-  if (/^(re)?watching/i.test(v)) return 'st-watching';
-  if (/^want/i.test(v)) return 'st-want';
-  if (/finished/i.test(v)) return 'st-finished';
-  if (/recommended/i.test(v)) return 'st-rec';
-  if (/paused|waiting|restart/i.test(v)) return 'st-paused';
-  if (/dropped/i.test(v)) return 'st-dropped';
-  return '';
+  if (!v) return '';
+  const c = statusColors.get(v) || defaultStatusColor(v);
+  return c === 'none' ? '' : `st-${c}`;
 }
 
 // ---------- List ----------
@@ -456,7 +478,7 @@ function showCard(s) {
 
 // ---------- Show page ----------
 const SELECTS = {
-  status: () => uniq([...STATUS_ORDER, ...state.shows.map((s) => s.status)]),
+  status: () => uniq(['', ...statusNames()]),
   want: () => uniq(['', ...WANT_ORDER, ...state.shows.map((s) => s.want)]),
   recommend: () => uniq(['', 'Top 50', 'Yes', ...state.shows.map((s) => s.recommend)]),
 };
@@ -1142,6 +1164,9 @@ function viewAccount() {
   const unlinked = state.shows.filter((s) => !s.tmdb).length;
   return el('div', { class: 'account-page' },
     el('section', { class: 'card' }, el('h2', {}, 'Account'), el('div', { id: 'account' })),
+    el('section', { class: 'card edit-only' }, el('h2', {}, 'Status options'),
+      el('p', { class: 'small' }, 'Add statuses, rename them, pick their colors and set their order.'),
+      el('a', { class: 'btn', href: '#/statuses' }, 'Edit status options')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'TMDB'),
       el('p', { class: 'small' }, `${state.shows.length - unlinked} of ${state.shows.length} titles linked to TMDB (needed for cast and favorite actors).`),
       el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links')),
@@ -1153,6 +1178,94 @@ function viewAccount() {
         el('button', { class: 'btn edit-only', onclick: () => file.click() }, 'Import backup…'), file),
       el('p', { class: 'muted small' }, 'Update Google Sheet overwrites the “Watch list (app)” tab with the current list. Edits made in the sheet don’t come back into the app.')),
     el('p', { class: 'muted small' }, `Version ${APP_VERSION}. Show data and images from TMDB; this app is not endorsed or certified by TMDB.`));
+}
+
+// ---------- Status options ----------
+function viewStatuses() {
+  const list = statusList();
+  const used = new Map();
+  for (const sh of state.shows) if (sh.status) used.set(sh.status, (used.get(sh.status) || 0) + 1);
+  const commit = (next, msg) => {
+    if (!canEdit()) return false;
+    state.statusSettings = { ...(state.statusSettings || {}), list: next };
+    save();
+    if (msg) toast(msg);
+    return true;
+  };
+  const move = (from, to) => {
+    if (to < 0 || to >= list.length || to === from) return;
+    const next = [...list]; next.splice(to, 0, next.splice(from, 1)[0]);
+    commit(next);
+    requestAnimationFrame(() => document.querySelector(`.status-row[data-i="${to}"] .move-${to > from ? 'down' : 'up'}`)?.focus());
+  };
+  const rename = (i, input) => {
+    const old = list[i].name, name = input.value.trim();
+    if (name === old) return;
+    if (!name) { input.value = old; return toast('A status needs a name.'); }
+    if (list.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase())) { input.value = old; return toast(`There is already a “${name}” status.`); }
+    if (!canEdit()) { input.value = old; return; }
+    const n = used.get(old) || 0;
+    for (const sh of state.shows) if (sh.status === old) sh.status = name;
+    commit(list.map((x, j) => (j === i ? { ...x, name } : x)), n ? `Renamed; ${n} show${n === 1 ? '' : 's'} updated` : 'Renamed');
+  };
+  const remove = (i) => {
+    const n = used.get(list[i].name) || 0;
+    if (n) return toast(`${n} show${n === 1 ? ' has' : 's have'} this status. Change ${n === 1 ? 'it' : 'them'} first.`,
+      { label: 'Show them', run: () => go(listHash([{ cat: 'status', value: list[i].name }])) });
+    const gone = list[i];
+    if (commit(list.filter((_, j) => j !== i))) toast(`Removed “${gone.name}”`, { label: 'Undo', run: () => { const back = statusList().filter((x) => x.name !== gone.name); back.splice(i, 0, gone); commit(back); } });
+  };
+
+  let dragFrom = null;
+  const rows = list.map((st, i) => {
+    const name = el('input', { class: 'status-name', value: st.name, 'aria-label': 'Status name', onchange: () => rename(i, name) });
+    name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
+    const n = used.get(st.name) || 0;
+    const handle = el('span', { class: 'drag-handle', title: 'Drag to reorder' }, '⠿');
+    const row = el('li', { class: 'status-row card', 'data-i': i },
+      el('div', { class: 'status-row-top' },
+        handle,
+        el('span', { class: `pill ${st.color === 'none' ? '' : `st-${st.color}`}` }, st.name),
+        n ? el('a', { class: 'muted small', href: listHash([{ cat: 'status', value: st.name }]) }, `${n} show${n === 1 ? '' : 's'}`) : el('span', { class: 'muted small' }, 'unused'),
+        el('span', { class: 'spacer' }),
+        el('button', { class: 'btn small ghost move-up', type: 'button', disabled: i === 0, 'aria-label': `Move ${st.name} up`, onclick: () => move(i, i - 1) }, '↑'),
+        el('button', { class: 'btn small ghost move-down', type: 'button', disabled: i === list.length - 1, 'aria-label': `Move ${st.name} down`, onclick: () => move(i, i + 1) }, '↓'),
+        el('button', { class: 'btn small ghost danger', type: 'button', 'aria-label': `Remove ${st.name}`, title: 'Remove', onclick: () => remove(i) }, '✕')),
+      el('div', { class: 'status-row-edit' }, name,
+        el('div', { class: 'swatches', role: 'group', 'aria-label': `Color for ${st.name}` },
+          Object.entries(STATUS_COLORS).map(([c, label]) => el('button', { type: 'button', title: label, 'aria-label': label, 'aria-pressed': String(c === st.color),
+            class: `swatch ${c === 'none' ? 'swatch-none' : `st-${c}`} ${c === st.color ? 'current' : ''}`,
+            onclick: () => { if (c !== st.color) commit(list.map((x, j) => (j === i ? { ...x, color: c } : x))); } })))));
+    // Drag by the handle on desktop; the arrows work everywhere.
+    handle.draggable = true;
+    handle.addEventListener('dragstart', (e) => {
+      dragFrom = i; row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', st.name); e.dataTransfer.setDragImage(row, 20, 20);
+    });
+    handle.addEventListener('dragend', () => { dragFrom = null; row.classList.remove('dragging'); });
+    row.addEventListener('dragover', (e) => { if (dragFrom != null) { e.preventDefault(); row.classList.add('drop-target'); } });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+    row.addEventListener('drop', (e) => { e.preventDefault(); const f = dragFrom; dragFrom = null; if (f != null) move(f, i); });
+    return row;
+  });
+
+  const newName = el('input', { placeholder: 'New status', 'aria-label': 'New status name' });
+  const add = (e) => {
+    e.preventDefault();
+    const name = newName.value.trim();
+    if (!name) return;
+    if (list.some((x) => x.name.toLowerCase() === name.toLowerCase())) return toast(`There is already a “${name}” status.`);
+    const taken = new Set(list.map((x) => x.color));
+    const color = Object.keys(STATUS_COLORS).find((c) => c !== 'none' && !taken.has(c)) || 'none';
+    if (commit([...list, { name, color }], `Added “${name}”`))
+      requestAnimationFrame(() => document.querySelector('.status-add input')?.focus());
+  };
+  return el('div', { class: 'statuses-page' },
+    el('h1', {}, 'Status options'),
+    el('p', { class: 'muted small' }, 'This order is used in the status menus and on the browse page. Renaming a status updates every show that has it.'),
+    el('ol', { class: 'status-rows' }, rows),
+    el('form', { class: 'card status-add row', onsubmit: add }, newName, el('button', { class: 'btn primary', type: 'submit' }, 'Add')),
+    el('p', {}, el('a', { href: '#/account' }, '← Account')));
 }
 
 // ---------- Boot ----------
