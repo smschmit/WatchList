@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.2';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -867,23 +867,57 @@ function viewLink() {
         : el('button', { class: 'btn primary', disabled: !left, onclick: () => runLinker(update) }, left ? `Match ${left} titles` : waiting ? 'Everything else is checked' : 'Everything is linked'));
     if (!linker || !linker.running) renderReview();
   }
+  // Picks wait here until "Save picks", so several shows can be linked in one go.
+  const picks = new Map(); // showId -> { id, type, poster } or { none: true }
+  const pickBar = el('div', { class: 'pick-bar' });
+  function renderPickBar() {
+    pickBar.hidden = !picks.size;
+    pickBar.replaceChildren(
+      el('span', {}, `${picks.size} picked`), el('span', { class: 'spacer' }),
+      el('button', { class: 'btn small ghost', onclick: () => { picks.clear(); renderReview(); } }, 'Clear'),
+      el('button', { class: 'btn small primary', onclick: savePicks }, `Save ${picks.size} ${picks.size === 1 ? 'pick' : 'picks'}`));
+  }
+  function savePicks() {
+    if (!canEdit() || !picks.size) return;
+    let n = 0;
+    for (const [id, tmdb] of picks) { const s = showById(id); if (s && !s.tmdb) { s.tmdb = tmdb; n++; } }
+    picks.clear();
+    save({ quiet: true });
+    toast(`Saved ${n} ${n === 1 ? 'title' : 'titles'}`);
+    renderReview();
+    update();
+  }
+  function togglePick(showId, tmdb, isSame) {
+    if (picks.has(showId) && isSame(picks.get(showId))) picks.delete(showId);
+    else picks.set(showId, tmdb);
+    renderReview();
+  }
   function renderReview() {
     const review = (linker ? linker.review : loadReview()).filter((r) => showById(r.showId) && !showById(r.showId).tmdb);
     saveReview(review);
+    for (const id of picks.keys()) if (!review.some((r) => r.showId === id)) picks.delete(id);
     reviewBox.replaceChildren(review.length ? el('h2', {}, `Pick the right one (${review.length})`) : '');
+    if (review.length) reviewBox.append(el('p', { class: 'muted small' }, 'Tap a result (or Not on TMDB) on as many cards as you like, then Save picks. Tap again to unpick.'));
     for (const r of review.slice(0, 40)) {
       const s = showById(r.showId);
-      const done = () => { r.done = true; save({ quiet: true }); renderReview(); update(); };
-      reviewBox.append(el('div', { class: 'card review' },
+      const pick = picks.get(s.id);
+      const noneBtn = el('button', { class: `btn small${pick && pick.none ? ' picked' : ''}`, 'aria-pressed': String(!!(pick && pick.none)),
+        onclick: () => togglePick(s.id, { none: true }, (p) => p.none) }, 'Not on TMDB');
+      reviewBox.append(el('div', { class: `card review${pick ? ' has-pick' : ''}` },
         el('div', { class: 'row' }, el('b', {}, s.title), el('span', { class: 'muted' }, ` ${years(s)} · ${s.format} · ${s.network}`), el('span', { class: 'spacer' }),
-          el('button', { class: 'btn small', onclick: () => { s.tmdb = { none: true }; done(); } }, 'Not on TMDB'),
+          noneBtn,
           el('button', { class: 'btn small ghost', onclick: () => go(`#/show/${s.id}`) }, 'Search myself')),
-        el('div', { class: 'tmdb-results' }, r.candidates.length ? r.candidates.map((h) => el('button', { class: 'tmdb-hit', onclick: () => { s.tmdb = { id: h.id, type: h.type, poster: h.poster }; done(); } },
-          poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`, el('div', { class: 'muted small clamp' }, h.overview)))) : el('p', { class: 'muted small' }, 'No results.'))));
+        el('div', { class: 'tmdb-results' }, r.candidates.length ? r.candidates.map((h) => {
+          const on = !!(pick && pick.id === h.id && pick.type === h.type);
+          return el('button', { class: `tmdb-hit${on ? ' picked' : ''}`, 'aria-pressed': String(on),
+            onclick: () => togglePick(s.id, { id: h.id, type: h.type, poster: h.poster }, (p) => p.id === h.id && p.type === h.type) },
+            poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`, el('div', { class: 'muted small clamp' }, h.overview)));
+        }) : el('p', { class: 'muted small' }, 'No results.'))));
     }
     if (review.length > 40) reviewBox.append(el('p', { class: 'muted' }, `${review.length - 40} more after these.`));
+    renderPickBar();
   }
-  wrap.append(status, reviewBox);
+  wrap.append(status, reviewBox, pickBar);
   update();
   return wrap;
 }

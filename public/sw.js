@@ -1,5 +1,5 @@
 // Offline cache. Bump CACHE together with APP_VERSION in app.js when shipping changes.
-const CACHE = 'watchlist-v2';
+const CACHE = 'watchlist-v3';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'cloud.js', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
