@@ -24,9 +24,14 @@ export default async (req) => {
   const params = new URLSearchParams(url.searchParams);
   params.delete('path');
   if (!params.has('language')) params.set('language', 'en-US');
-  const res = await fetch(`https://api.themoviedb.org/3${path}?${params}`, {
-    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
-  });
+  let res;
+  try {
+    res = await fetch(`https://api.themoviedb.org/3${path}?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+    });
+  } catch (e) {
+    return json({ error: `Could not reach TMDB: ${e.message}` }, 502);
+  }
   return new Response(await res.text(), {
     status: res.status,
     headers: { 'content-type': 'application/json', 'cache-control': 'private, max-age=3600' },

@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.3';
+const APP_VERSION = '0.1.4';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -486,7 +486,11 @@ async function tmdb(path, params = {}) {
     qs.set('path', path);
     res = await fetch(`/.netlify/functions/tmdb?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
   }
-  if (!res.ok) throw new Error(`TMDB lookup failed (${res.status})`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const why = body.error || body.status_message || (res.status === 429 ? 'TMDB is busy, try again in a moment' : '');
+    throw new Error(`TMDB lookup failed (${res.status})${why ? `: ${why}` : ''}`);
+  }
   return res.json();
 }
 async function cached(key, fn) {
