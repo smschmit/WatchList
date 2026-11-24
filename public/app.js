@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.7';
+const APP_VERSION = '0.1.8';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -26,14 +26,14 @@ function normShow(s) {
     country: s.country || '', languages: arr(s.languages), tags: arr(s.tags),
     network: s.network || '', confidence: s.confidence || '', researchNotes: s.researchNotes || '',
     status: s.status || '', want: s.want || '', recommend: s.recommend || '',
-    sources: arr(s.sources), notes: s.notes || '',
+    sources: arr(s.sources), notes: s.notes || '', rating: toNum(s.rating),
     tmdb: s.tmdb || null,
     ...pickExtra(s, SHOW_KEYS),
   };
 }
 const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'tmdb'];
+  'sources', 'notes', 'rating', 'tmdb'];
 function normActor(a) {
   return { id: a.id || `p${a.tmdbId}`, tmdbId: a.tmdbId, name: a.name || '', profile: a.profile || null,
     note: a.note || '', credits: arr(a.credits), creditsAt: a.creditsAt || null, ...pickExtra(a, ['id', 'tmdbId', 'name', 'profile', 'note', 'credits', 'creditsAt']) };
@@ -129,6 +129,7 @@ let actorIndex = new Map(); // "tv:123" -> [actor names], rebuilt on render
 function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }
 const CATS = [
   { key: 'status', label: 'My status', get: (s) => s.status, order: STATUS_ORDER },
+  { key: 'rating', label: 'My rating', get: (s) => (s.rating ? stars(s.rating) : ''), order: [5, 4, 3, 2, 1].map(stars) },
   { key: 'want', label: 'Want to watch?', get: (s) => s.want, order: WANT_ORDER, hideBlank: true },
   { key: 'recommend', label: 'Use to recommend similar', get: (s) => s.recommend, order: ['Top 50', 'Yes'], hideBlank: true },
   { key: 'actor', label: 'Favorite actors', get: favNamesFor, multi: true, hideBlank: true },
@@ -149,6 +150,9 @@ const CATS = [
   { key: 'confidence', label: 'Research confidence', get: (s) => s.confidence, order: ['High', 'Medium', 'Low', 'Check'] },
 ];
 const catByKey = Object.fromEntries(CATS.map((c) => [c.key, c]));
+function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+// Release-year range filters: ?yfrom=2010&yto=2019 (either end optional).
+const RANGE = { yfrom: 'From', yto: 'To' };
 const BLANK = '(not set)';
 function valuesOf(cat, s) {
   const v = cat.get(s);
@@ -189,7 +193,7 @@ function listHash(filters, q, sort) {
 function filtersFrom(params) {
   const out = [];
   for (const [k, v] of params) {
-    if (catByKey[k]) out.push({ cat: k, value: v });
+    if (catByKey[k] || (RANGE[k] && /^\d{4}$/.test(v))) out.push({ cat: k, value: v });
     else if (k.startsWith('x-') && catByKey[k.slice(2)]) out.push({ cat: k.slice(2), value: v, not: true });
   }
   return out;
@@ -282,9 +286,16 @@ function applyFilters(shows, filters, q) {
   // Same column: included values widen (OR). Excluded values drop any show that has one. Different columns narrow (AND).
   const inc = new Map();
   const exc = new Map();
-  for (const f of filters) { const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value); }
+  let yfrom = null;
+  let yto = null;
+  for (const f of filters) {
+    if (f.cat === 'yfrom') { yfrom = Number(f.value); continue; }
+    if (f.cat === 'yto') { yto = Number(f.value); continue; }
+    const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value);
+  }
   const nq = norm(q);
   return shows.filter((s) => {
+    if ((yfrom != null || yto != null) && (!s.year || (yfrom != null && s.year < yfrom) || (yto != null && s.year > yto))) return false;
     for (const [ck, vals] of inc) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     for (const [ck, vals] of exc) if (valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     if (nq && !norm(`${s.title} ${s.notes}`).includes(nq)) return false;
@@ -303,7 +314,7 @@ function viewList(r) {
   for (const f of filters) {
     const rest = filters.filter((x) => x !== f);
     bar.append(el('a', { class: `chip active ${f.not ? 'excluded' : f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
-      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
+      el('span', { class: 'chip-cat' }, RANGE[f.cat] ? `Year ${RANGE[f.cat].toLowerCase()}:` : `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
   }
   if (q) bar.append(el('a', { class: 'chip active', href: listHash(filters, '', sort) }, `“${q}”`, el('span', { class: 'x' }, '×')));
   const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
@@ -354,7 +365,18 @@ function viewList(r) {
       if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing here.'));
     };
     catSel.onchange = fill;
+    const yearInput = (key, label) => {
+      const cur = [...pending.values()].find((f) => f.cat === key);
+      const input = el('input', { type: 'number', inputmode: 'numeric', min: 1900, max: 2100, placeholder: 'any', value: cur ? cur.value : '', 'aria-label': `Release year ${label}`,
+        oninput: () => {
+          for (const k of [...pending.keys()]) if (pending.get(k).cat === key) pending.delete(k);
+          if (/^\d{4}$/.test(input.value)) pending.set(`${key}\u0000${input.value}`, { cat: key, value: input.value });
+          refresh();
+        } });
+      return el('label', { class: 'inline' }, ` ${label} `, input);
+    };
     picker.append(
+      el('div', { class: 'row year-range' }, el('span', {}, 'Release year'), yearInput('yfrom', 'from'), yearInput('yto', 'to')),
       el('div', { class: 'row' }, el('label', { class: 'inline' }, 'Filter by ', catSel)),
       el('p', { class: 'muted small' }, 'Tap values to pick as many as you like: once to include (✓), twice to exclude (✕), three times to clear. You can switch columns and keep picking.'),
       chips,
@@ -432,7 +454,7 @@ function viewShow(r) {
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       chips('genre', s.genres), chips('tag', s.tags),
       descriptionBox(s),
-      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
+      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
       el('label', { class: 'field wide' }, 'Notes', notes),
       s.researchNotes ? el('p', { class: 'small muted' }, `Research notes: ${s.researchNotes}`) : null,
       s.sources.length ? el('p', { class: 'small muted' }, `Source: ${s.sources.join(', ')}`) : null,
@@ -442,6 +464,17 @@ function viewShow(r) {
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   wrap.append(castSection(s));
   return wrap;
+}
+// 1–5 stars. Tapping the current rating clears it.
+function ratingField(s) {
+  const box = el('div', { class: 'stars', role: 'group', 'aria-label': 'My rating' });
+  const draw = () => box.replaceChildren(...[1, 2, 3, 4, 5].map((n) => el('button', {
+    class: `star${s.rating >= n ? ' on' : ''}`, disabled: readOnly, title: s.rating === n ? 'Clear rating' : `${n} star${n > 1 ? 's' : ''}`,
+    'aria-pressed': String(s.rating === n),
+    onclick: () => { if (!canEdit()) return; s.rating = s.rating === n ? null : n; save({ quiet: true }); draw(); toast(s.rating ? `Rated ${stars(s.rating)}` : 'Rating cleared'); },
+  }, s.rating >= n ? '★' : '☆')));
+  draw();
+  return el('div', { class: 'field' }, 'My rating', box);
 }
 // TMDB's summary, collapsed so it doesn't push the pickers and notes down.
 function descriptionBox(s) {
@@ -1037,7 +1070,7 @@ function viewLink() {
 // ---------- Account, backup, export ----------
 const EXPORT_COLS = [
   ['Title', (s) => s.title], ['My Status', (s) => s.status], ['Want to Watch?', (s) => s.want],
-  ['Use to recommend similar shows', (s) => s.recommend], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
+  ['Use to recommend similar shows', (s) => s.recommend], ['My Rating', (s) => s.rating || ''], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
   ['Format', (s) => s.format], ['Release Year', (s) => s.year], ['End Year', (s) => s.endYear], ['Seasons', (s) => s.seasons],
   ['Episodes', (s) => s.episodes], ['Episode Length (min)', (s) => s.epLength], ['Total Hours', (s) => { const h = totalHours(s); return h == null ? '' : Math.round(h * 10) / 10; }],
   ['Show Status', (s) => s.showStatus], ['Genre', (s) => s.genres.join(', ')], ['Structure', (s) => s.structure],

@@ -176,3 +176,9 @@ button.chip { font-family: inherit; cursor: pointer; }
 .chip .mark { font-weight: 700; }
 .chip .not { font-weight: 700; font-size: .78rem; text-transform: uppercase; }
 .picker-actions { margin-top: .6rem; align-items: center; }
+.year-range { align-items: center; gap: .4rem; margin-bottom: .5rem; }
+.year-range input { width: 6.5rem; }
+.stars { display: flex; gap: .1rem; }
+.star { font-size: 1.5rem; line-height: 1; background: none; border: 0; padding: .1rem; cursor: pointer; color: var(--muted); }
+.star.on { color: #e3a008; }
+.star:disabled { cursor: default; }
