@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.5';
+const APP_VERSION = '0.1.6';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -788,12 +788,17 @@ function viewActor(r) {
 
     let showAll = false;
     let onlyMissing = false;
+    let showTv = true;
+    let showMovies = true;
     const listBox = el('div', { class: 'credit-list' });
     const controls = el('div', { class: 'row filter-bar' },
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: true, onchange: (e) => { showTv = e.target.checked; fill(); } }), ' TV shows'),
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: true, onchange: (e) => { showMovies = e.target.checked; fill(); } }), ' Movies'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', onchange: (e) => { onlyMissing = e.target.checked; fill(); } }), ' Only ones not on my list'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', onchange: (e) => { showAll = e.target.checked; fill(); } }), ' Include talk shows and appearances as themself'));
     function fill() {
-      const items = p.credits.filter((c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c)));
+      const items = p.credits.filter((c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c))
+        && (c.type === 'tv' ? showTv : showMovies));
       listBox.replaceChildren(...items.map(creditRow));
       if (!items.length) listBox.append(el('p', { class: 'muted' }, 'Nothing to show.'));
     }
