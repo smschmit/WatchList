@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.7';
+const APP_VERSION = '0.1.8';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -747,10 +747,33 @@ async function addFromTmdb(t, extra = {}) {
   if (existing) { go(`#/show/${existing.id}`); return existing; }
   let d;
   try { d = await detailsToShow(t); } catch (e) { toast(e.message); return null; }
-  const s = normShow({ ...d, status: 'Want to Watch', sources: [`Added in app (${today().slice(0, 7)})`], ...extra });
+  const s = normShow({ ...d, status: 'Identified', sources: [`Added in app (${today().slice(0, 7)})`], ...extra });
   state.shows.push(s);
   save({ quiet: true });
+  await pickStatus(s);
   return s;
+}
+// Shown right after adding: every status as a button, current one (Identified) marked.
+// Closing without picking keeps the current status. Resolves once closed.
+function pickStatus(s) {
+  return new Promise((resolve) => {
+    const dlg = el('dialog', { class: 'edit-dialog status-dialog' });
+    const form = el('form', { method: 'dialog', class: 'status-form' },
+      el('h2', {}, `Status for ${s.title}`),
+      el('div', { class: 'status-options' }, SELECTS.status().filter(Boolean).map((v) =>
+        el('button', { class: `btn status-opt ${v === s.status ? 'current' : ''}`, value: v, autofocus: v === s.status },
+          el('span', { class: `pill ${statusClass(v)}` }, v)))),
+      el('div', { class: 'btn-row' }, el('button', { class: 'btn ghost', value: '' }, `Keep “${s.status}”`)));
+    dlg.append(form);
+    dlg.addEventListener('close', () => {
+      const v = dlg.returnValue;
+      if (v && v !== s.status) { s.status = v; save({ quiet: true }); }
+      dlg.remove();
+      resolve(s);
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+  });
 }
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
@@ -898,11 +921,11 @@ function viewAdd() {
   wrap.append(el('h2', {}, 'Not on TMDB?'), el('form', { class: 'row', onsubmit: (e) => {
     e.preventDefault();
     if (!title.value.trim() || !canEdit()) return;
-    const s = normShow({ title: title.value.trim(), status: 'Want to Watch', sources: [`Added in app (${today().slice(0, 7)})`], tmdb: { none: true } });
+    const s = normShow({ title: title.value.trim(), status: 'Identified', sources: [`Added in app (${today().slice(0, 7)})`], tmdb: { none: true } });
     state.shows.push(s);
     save({ quiet: true });
     go(`#/show/${s.id}`);
-    openEdit(s);
+    pickStatus(s).then(() => { render(); openEdit(s); });
   } }, title, el('button', { class: 'btn' }, 'Add by hand')));
   return wrap;
 }
