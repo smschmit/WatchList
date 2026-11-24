@@ -169,3 +169,10 @@ h3.section { font-size: .95rem; margin: 1rem 0 .4rem; }
 .description { margin: .6rem 0; }
 .description summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .description p { margin: .4rem 0 0; }
+button.chip { font-family: inherit; cursor: pointer; }
+.chip.pick-inc { background: var(--accent-soft); border-color: var(--accent); }
+.chip.pick-exc, .chip.excluded { background: var(--dropped-bg); color: var(--dropped); border-color: var(--dropped); }
+.chip.pick-exc { text-decoration: line-through; }
+.chip .mark { font-weight: 700; }
+.chip .not { font-weight: 700; font-size: .78rem; text-transform: uppercase; }
+.picker-actions { margin-top: .6rem; align-items: center; }

@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.6';
+const APP_VERSION = '0.1.7';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -113,7 +113,7 @@ function download(name, text, type) {
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ---------- Categories (one per column you can browse by) ----------
-const STATUS_ORDER = ['Watching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
+const STATUS_ORDER = ['Watching', 'Rewatching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
   'Paused Between Seasons', 'Waiting for Series End', 'Identified', 'Recommended', 'Finished', 'Dropped', 'Some'];
 const WANT_ORDER = ['A lot', 'Yes', "Once it's finished", 'Maybe'];
 function bucket(v, edges) {
@@ -180,7 +180,7 @@ function route() {
 function go(hash) { location.hash = hash; }
 function listHash(filters, q, sort) {
   const p = new URLSearchParams();
-  for (const f of filters) p.append(f.cat, f.value);
+  for (const f of filters) p.append(f.not ? `x-${f.cat}` : f.cat, f.value);
   if (q) p.set('q', q);
   if (sort && sort !== 'title') p.set('sort', sort);
   const s = p.toString();
@@ -188,7 +188,10 @@ function listHash(filters, q, sort) {
 }
 function filtersFrom(params) {
   const out = [];
-  for (const [k, v] of params) if (catByKey[k]) out.push({ cat: k, value: v });
+  for (const [k, v] of params) {
+    if (catByKey[k]) out.push({ cat: k, value: v });
+    else if (k.startsWith('x-') && catByKey[k.slice(2)]) out.push({ cat: k.slice(2), value: v, not: true });
+  }
   return out;
 }
 const scrollPos = new Map();
@@ -256,7 +259,7 @@ function chipLink(cat, value, n, filters = []) {
     value, n != null ? el('span', { class: 'count' }, n) : null);
 }
 function statusClass(v) {
-  if (/^watching/i.test(v)) return 'st-watching';
+  if (/^(re)?watching/i.test(v)) return 'st-watching';
   if (/^want/i.test(v)) return 'st-want';
   if (/finished/i.test(v)) return 'st-finished';
   if (/recommended/i.test(v)) return 'st-rec';
@@ -276,11 +279,14 @@ const SORTS = {
   seasons: ['Fewest seasons', (a, b) => (a.seasons ?? 1e9) - (b.seasons ?? 1e9)],
 };
 function applyFilters(shows, filters, q) {
-  const byCat = new Map();
-  for (const f of filters) { if (!byCat.has(f.cat)) byCat.set(f.cat, new Set()); byCat.get(f.cat).add(f.value); }
+  // Same column: included values widen (OR). Excluded values drop any show that has one. Different columns narrow (AND).
+  const inc = new Map();
+  const exc = new Map();
+  for (const f of filters) { const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value); }
   const nq = norm(q);
   return shows.filter((s) => {
-    for (const [ck, vals] of byCat) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
+    for (const [ck, vals] of inc) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
+    for (const [ck, vals] of exc) if (valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     if (nq && !norm(`${s.title} ${s.notes}`).includes(nq)) return false;
     return true;
   });
@@ -296,8 +302,8 @@ function viewList(r) {
   const bar = el('div', { class: 'filter-bar' });
   for (const f of filters) {
     const rest = filters.filter((x) => x !== f);
-    bar.append(el('a', { class: `chip active ${f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
-      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.value, el('span', { class: 'x' }, '×')));
+    bar.append(el('a', { class: `chip active ${f.not ? 'excluded' : f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
+      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
   }
   if (q) bar.append(el('a', { class: 'chip active', href: listHash(filters, '', sort) }, `“${q}”`, el('span', { class: 'x' }, '×')));
   const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
@@ -308,25 +314,56 @@ function viewList(r) {
   bar.append(el('span', { class: 'spacer' }), el('span', { class: 'muted' }, `${results.length} of ${state.shows.length}`), sel);
   wrap.append(bar);
 
-  // Filter picker: every category with counts inside the current results.
+  // Filter picker: pick several values (in any columns), then Apply. Tap once to include, again to exclude, again to clear.
   const picker = el('div', { class: 'picker card', hidden: true });
   function togglePicker() {
     picker.hidden = !picker.hidden;
     if (picker.hidden || picker.childElementCount) return;
+    const pending = new Map(filters.map((f) => [`${f.cat}\u0000${f.value}`, f]));
     const catSel = el('select', { 'aria-label': 'Column' }, CATS.map((c) => el('option', { value: c.key }, c.label)));
     const chips = el('div', { class: 'chips' });
+    const applyBtn = el('button', { class: 'btn small primary', onclick: () => go(listHash([...pending.values()], q, sort)) }, 'Apply');
+    const status = el('span', { class: 'muted small' });
+    const refresh = () => {
+      const n = [...pending.values()];
+      const changed = n.length !== filters.length || filters.some((f) => { const p = pending.get(`${f.cat}\u0000${f.value}`); return !p || !!p.not !== !!f.not; });
+      applyBtn.disabled = !changed;
+      status.textContent = n.length ? `${n.length} selected` : '';
+    };
     const fill = () => {
       const cat = catByKey[catSel.value];
-      const used = new Set(filters.filter((f) => f.cat === cat.key).map((f) => f.value));
       // Within the same column, values combine with OR, so count against results without that column's filters.
       const base = applyFilters(state.shows, filters.filter((f) => f.cat !== cat.key), q);
-      chips.replaceChildren(...counts(cat, base).filter(([v]) => !used.has(v)).map(([v, n]) =>
-        el('a', { class: 'chip', href: listHash([...filters, { cat: cat.key, value: v }], q, sort) }, v, el('span', { class: 'count' }, n))));
-      if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing to add here.'));
+      const entries = counts(cat, base);
+      for (const f of pending.values()) if (f.cat === cat.key && !entries.some(([v]) => v === f.value)) entries.push([f.value, 0]);
+      chips.replaceChildren(...entries.map(([v, n]) => {
+        const key = `${cat.key}\u0000${v}`;
+        const cur = pending.get(key);
+        const mode = cur ? (cur.not ? 'exc' : 'inc') : 'off';
+        return el('button', { class: `chip pick-${mode}`, 'aria-pressed': mode === 'off' ? 'false' : 'true',
+          title: mode === 'off' ? 'Tap to include' : mode === 'inc' ? 'Tap to exclude' : 'Tap to clear',
+          onclick: () => {
+            if (mode === 'off') pending.set(key, { cat: cat.key, value: v });
+            else if (mode === 'inc') pending.set(key, { cat: cat.key, value: v, not: true });
+            else pending.delete(key);
+            fill(); refresh();
+          } },
+          mode === 'inc' ? el('span', { class: 'mark' }, '✓') : mode === 'exc' ? el('span', { class: 'mark' }, '✕') : null,
+          v, el('span', { class: 'count' }, n));
+      }));
+      if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing here.'));
     };
     catSel.onchange = fill;
-    picker.append(el('label', { class: 'inline' }, 'Filter by ', catSel), chips);
+    picker.append(
+      el('div', { class: 'row' }, el('label', { class: 'inline' }, 'Filter by ', catSel)),
+      el('p', { class: 'muted small' }, 'Tap values to pick as many as you like: once to include (✓), twice to exclude (✕), three times to clear. You can switch columns and keep picking.'),
+      chips,
+      el('div', { class: 'row picker-actions' }, status, el('span', { class: 'spacer' }),
+        el('button', { class: 'btn small ghost', onclick: () => { pending.clear(); fill(); refresh(); } }, 'Clear all'),
+        el('button', { class: 'btn small', onclick: () => { picker.hidden = true; picker.replaceChildren(); } }, 'Cancel'),
+        applyBtn));
     fill();
+    refresh();
   }
   wrap.append(picker);
 
