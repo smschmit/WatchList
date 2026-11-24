@@ -141,12 +141,9 @@ progress { width: 100%; height: 10px; }
 
 .edit-dialog { border: none; border-radius: 14px; padding: 0; width: min(640px, 94vw); background: var(--card); color: var(--text); }
 .edit-dialog::backdrop { background: rgb(0 0 0 / .4); }
-.status-dialog { width: min(440px, 94vw); }
-.status-form { padding: 1.2rem; }
-.status-form h2 { margin-top: 0; }
-.status-options { display: flex; flex-direction: column; gap: .35rem; }
-.status-opt { text-align: left; justify-content: flex-start; }
-.status-opt.current { outline: 2px solid var(--accent, currentColor); }
+.status-select { border: 1px solid var(--line); font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; max-width: 100%; field-sizing: content; }
+.show-card { cursor: pointer; }
+.show-card-title a { color: inherit; }
 .edit-form { padding: 1.2rem; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .edit-form h2, .edit-form .btn-row { grid-column: 1 / -1; }
 

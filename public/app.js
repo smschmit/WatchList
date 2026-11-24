@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.8';
+const APP_VERSION = '0.1.9';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -258,6 +258,18 @@ function chipLink(cat, value, n, filters = []) {
   return el('a', { class: `chip ${cat === 'status' ? statusClass(value) : ''}`, href: listHash([...filters, { cat, value }]) },
     value, n != null ? el('span', { class: 'count' }, n) : null);
 }
+// Status as a pill-styled menu, used wherever a show's status appears. Read-only viewers get a plain pill.
+function statusSelect(s) {
+  if (readOnly) return s.status ? el('span', { class: `pill ${statusClass(s.status)}` }, s.status) : null;
+  const sel = el('select', { class: `pill status-select ${statusClass(s.status)}`, 'aria-label': `Status for ${s.title}`,
+    onchange: () => {
+      if (!canEdit()) { sel.value = s.status; return; }
+      s.status = sel.value; sel.className = `pill status-select ${statusClass(s.status)}`;
+      save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
+    } },
+    uniq(['', ...SELECTS.status()]).map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+  return sel;
+}
 function statusClass(v) {
   if (/^(re)?watching/i.test(v)) return 'st-watching';
   if (/^want/i.test(v)) return 'st-want';
@@ -394,10 +406,12 @@ function metaLine(s) {
 }
 function showCard(s) {
   const favs = favNamesFor(s);
-  return el('a', { class: 'show-card', href: `#/show/${encodeURIComponent(s.id)}` },
+  const href = `#/show/${encodeURIComponent(s.id)}`;
+  // A div, not a link, so the status menu inside it works; tapping anywhere else opens the show.
+  return el('div', { class: 'show-card', onclick: (e) => { if (!e.target.closest('select, a')) go(href); } },
     poster(s.tmdb && s.tmdb.poster),
     el('div', { class: 'show-card-body' },
-      el('div', { class: 'show-card-title' }, s.title, s.status ? el('span', { class: `pill ${statusClass(s.status)}` }, s.status) : null),
+      el('div', { class: 'show-card-title' }, el('a', { href }, s.title), statusSelect(s)),
       el('div', { class: 'muted small' }, metaLine(s)),
       el('div', { class: 'small' }, [...s.genres, ...s.tags.slice(0, 4)].join(' · ')),
       favs.length ? el('div', { class: 'small fav-line' }, '♥ ', favs.join(', ')) : null));
@@ -750,30 +764,7 @@ async function addFromTmdb(t, extra = {}) {
   const s = normShow({ ...d, status: 'Identified', sources: [`Added in app (${today().slice(0, 7)})`], ...extra });
   state.shows.push(s);
   save({ quiet: true });
-  await pickStatus(s);
   return s;
-}
-// Shown right after adding: every status as a button, current one (Identified) marked.
-// Closing without picking keeps the current status. Resolves once closed.
-function pickStatus(s) {
-  return new Promise((resolve) => {
-    const dlg = el('dialog', { class: 'edit-dialog status-dialog' });
-    const form = el('form', { method: 'dialog', class: 'status-form' },
-      el('h2', {}, `Status for ${s.title}`),
-      el('div', { class: 'status-options' }, SELECTS.status().filter(Boolean).map((v) =>
-        el('button', { class: `btn status-opt ${v === s.status ? 'current' : ''}`, value: v, autofocus: v === s.status },
-          el('span', { class: `pill ${statusClass(v)}` }, v)))),
-      el('div', { class: 'btn-row' }, el('button', { class: 'btn ghost', value: '' }, `Keep “${s.status}”`)));
-    dlg.append(form);
-    dlg.addEventListener('close', () => {
-      const v = dlg.returnValue;
-      if (v && v !== s.status) { s.status = v; save({ quiet: true }); }
-      dlg.remove();
-      resolve(s);
-    });
-    document.body.append(dlg);
-    dlg.showModal();
-  });
 }
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
@@ -865,7 +856,7 @@ function viewActor(r) {
     function creditRow(c) {
       const mine = listShowFor(c);
       const action = mine
-        ? el('a', { class: `pill ${statusClass(mine.status)}`, href: `#/show/${mine.id}` }, mine.status || 'On list')
+        ? statusSelect(mine)
         : readOnly ? null : el('button', { class: 'btn small primary', onclick: async (e) => {
           e.target.disabled = true;
           const s = await addFromTmdb({ id: c.id, type: c.type }, { sources: [`Actor: ${p.name}`] });
@@ -925,7 +916,7 @@ function viewAdd() {
     state.shows.push(s);
     save({ quiet: true });
     go(`#/show/${s.id}`);
-    pickStatus(s).then(() => { render(); openEdit(s); });
+    openEdit(s);
   } }, title, el('button', { class: 'btn' }, 'Add by hand')));
   return wrap;
 }
