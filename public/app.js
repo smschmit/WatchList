@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';

@@ -312,7 +312,7 @@
         el('button', { class: 'btn', onclick: () => schedule(0) }, mode === 'viewer' ? 'Refresh' : 'Sync now'),
         el('button', { class: 'btn', onclick: () => { showPassword = !showPassword; renderAccount(); } }, 'Change password'),
         el('button', { class: 'btn', onclick: signOut }, 'Sign out')),
-      showPassword ? passwordForm() : null,
+      showPassword ? passwordForm() : '',
     );
     renderStatus();
     if (mode === 'owner') {
