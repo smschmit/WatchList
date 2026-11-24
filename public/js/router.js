@@ -1,5 +1,5 @@
 // Hash routing and the top-level render.
-import { catByKey, rebuildActorIndex } from './categories.js';
+import { catByKey, RANGE, rebuildActorIndex, rebuildStatusColors } from './categories.js';
 
 // ---------- Routing ----------
 export function route() {
@@ -20,7 +20,7 @@ export function listHash(filters, q, sort) {
 export function filtersFrom(params) {
   const out = [];
   for (const [k, v] of params) {
-    if (catByKey[k]) out.push({ cat: k, value: v });
+    if (catByKey[k] || (RANGE[k] && /^\d{4}$/.test(v))) out.push({ cat: k, value: v });
     else if (k.startsWith('x-') && catByKey[k.slice(2)]) out.push({ cat: k.slice(2), value: v, not: true });
   }
   return out;
@@ -41,6 +41,7 @@ window.addEventListener('hashchange', () => {
 let views = {};
 export function setViews(v) { views = v; }
 export function render() {
+  rebuildStatusColors();
   rebuildActorIndex();
   const r = route();
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === r.name));

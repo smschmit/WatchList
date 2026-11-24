@@ -17,7 +17,7 @@ export function viewBrowse() {
     }
     const shown = cat.top ? entries.slice(0, cat.top) : entries;
     const sec = el('section', { class: 'cat card' },
-      el('h2', {}, cat.label),
+      el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null),
       el('div', { class: 'chips' }, shown.map(([v, n]) => chipLink(cat.key, v, n))));
     if (cat.top && entries.length > cat.top) {
       const more = el('button', { class: 'btn small', onclick: () => {

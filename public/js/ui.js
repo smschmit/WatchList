@@ -2,7 +2,7 @@
 import { el, toast, uniq } from './util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from './state.js';
 import { isMovie, totalHours, fmtHours, years } from './shows.js';
-import { STATUS_ORDER, WANT_ORDER, favNamesFor } from './categories.js';
+import { WANT_ORDER, favNamesFor, statusNames, statusColors, defaultStatusColor } from './categories.js';
 import { go, listHash } from './router.js';
 import { searchTmdb } from './tmdb.js';
 import { toggleFavorite } from './library.js';
@@ -29,7 +29,7 @@ export function statusSelect(s) {
       s.status = sel.value; sel.className = `pill status-select ${statusClass(s.status)}`;
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
     } },
-    uniq(['', ...SELECTS.status()]).map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+    SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
   // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
   sel.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
@@ -70,13 +70,9 @@ export function openStatusMenu(sel, x, y) {
   });
 }
 export function statusClass(v) {
-  if (/^(re)?watching/i.test(v)) return 'st-watching';
-  if (/^want/i.test(v)) return 'st-want';
-  if (/finished/i.test(v)) return 'st-finished';
-  if (/recommended/i.test(v)) return 'st-rec';
-  if (/paused|waiting|restart/i.test(v)) return 'st-paused';
-  if (/dropped/i.test(v)) return 'st-dropped';
-  return '';
+  if (!v) return '';
+  const c = statusColors.get(v) || defaultStatusColor(v);
+  return c === 'none' ? '' : `st-${c}`;
 }
 
 export function poster(path, size = 'w92', cls = 'poster') {
@@ -105,7 +101,7 @@ export function showCard(s) {
 
 // ---------- Show page ----------
 export const SELECTS = {
-  status: () => uniq([...STATUS_ORDER, ...state.shows.map((s) => s.status)]),
+  status: () => uniq(['', ...statusNames()]),
   want: () => uniq(['', ...WANT_ORDER, ...state.shows.map((s) => s.want)]),
   recommend: () => uniq(['', 'Top 50', 'Yes', ...state.shows.map((s) => s.recommend)]),
 };

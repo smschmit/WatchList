@@ -25,7 +25,7 @@ export function normShow(s) {
     country: s.country || '', languages: arr(s.languages), tags: arr(s.tags),
     network: s.network || '', confidence: s.confidence || '', researchNotes: s.researchNotes || '',
     status: s.status || '', want: s.want || '', recommend: s.recommend || '',
-    sources: arr(s.sources), notes: s.notes || '',
+    sources: arr(s.sources), notes: s.notes || '', rating: toNum(s.rating),
     tmdb: s.tmdb || null,
     facts: s.facts || null, // what TMDB said at the last check (see facts.js); never edited by hand
     factsAck: s.factsAck || '', // the facts you dismissed on the Updates page
@@ -34,7 +34,7 @@ export function normShow(s) {
 }
 export const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'tmdb', 'facts', 'factsAck'];
+  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck'];
 export function normActor(a) {
   return { id: a.id || `p${a.tmdbId}`, tmdbId: a.tmdbId, name: a.name || '', profile: a.profile || null,
     note: a.note || '', credits: arr(a.credits), creditsAt: a.creditsAt || null, ...pickExtra(a, ['id', 'tmdbId', 'name', 'profile', 'note', 'credits', 'creditsAt']) };

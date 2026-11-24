@@ -1,7 +1,7 @@
 // Filtered, sorted list of shows.
 import { el } from '../util.js';
 import { state } from '../state.js';
-import { CATS, catByKey, counts, SORTS, applyFilters } from '../categories.js';
+import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
 import { go, listHash, filtersFrom } from '../router.js';
 import { emptyState, statusClass, showCard } from '../ui.js';
 
@@ -17,7 +17,7 @@ export function viewList(r) {
   for (const f of filters) {
     const rest = filters.filter((x) => x !== f);
     bar.append(el('a', { class: `chip active ${f.not ? 'excluded' : f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
-      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
+      el('span', { class: 'chip-cat' }, RANGE[f.cat] ? `Year ${RANGE[f.cat].toLowerCase()}:` : `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
   }
   if (q) bar.append(el('a', { class: 'chip active', href: listHash(filters, '', sort) }, `“${q}”`, el('span', { class: 'x' }, '×')));
   const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
@@ -68,7 +68,18 @@ export function viewList(r) {
       if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing here.'));
     };
     catSel.onchange = fill;
+    const yearInput = (key, label) => {
+      const cur = [...pending.values()].find((f) => f.cat === key);
+      const input = el('input', { type: 'number', inputmode: 'numeric', min: 1900, max: 2100, placeholder: 'any', value: cur ? cur.value : '', 'aria-label': `Release year ${label}`,
+        oninput: () => {
+          for (const k of [...pending.keys()]) if (pending.get(k).cat === key) pending.delete(k);
+          if (/^\d{4}$/.test(input.value)) pending.set(`${key}\u0000${input.value}`, { cat: key, value: input.value });
+          refresh();
+        } });
+      return el('label', { class: 'inline' }, ` ${label} `, input);
+    };
     picker.append(
+      el('div', { class: 'row year-range' }, el('span', {}, 'Release year'), yearInput('yfrom', 'from'), yearInput('yto', 'to')),
       el('div', { class: 'row' }, el('label', { class: 'inline' }, 'Filter by ', catSel)),
       el('p', { class: 'muted small' }, 'Tap values to pick as many as you like: once to include (✓), twice to exclude (✕), three times to clear. You can switch columns and keep picking.'),
       chips,

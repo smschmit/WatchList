@@ -8,6 +8,32 @@ import { isMovie, totalHours } from './shows.js';
 export const STATUS_ORDER = ['Watching', 'Rewatching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
   'Paused Between Seasons', 'Waiting for Series End', 'Identified', 'Recommended', 'Finished', 'Dropped', 'Some'];
 export const WANT_ORDER = ['A lot', 'Yes', "Once it's finished", 'Maybe'];
+
+// Status options: names, colors and order are editable (#/statuses) and saved in state.statusSettings.list.
+// Until edited, the list is STATUS_ORDER with the colors the app always used.
+export const STATUS_COLORS = { blue: 'Blue', green: 'Green', teal: 'Teal', purple: 'Purple', pink: 'Pink', red: 'Red',
+  orange: 'Orange', yellow: 'Yellow', brown: 'Brown', gray: 'Gray', none: 'No color' };
+export function defaultStatusColor(v) {
+  if (/^(re)?watching/i.test(v)) return 'green';
+  if (/^want/i.test(v)) return 'blue';
+  if (/finished/i.test(v)) return 'gray';
+  if (/recommended/i.test(v)) return 'purple';
+  if (/paused|waiting|restart/i.test(v)) return 'orange';
+  if (/dropped/i.test(v)) return 'red';
+  return 'none';
+}
+// Every status: the saved list in order, then any status a show has that isn't in it.
+export function statusList() {
+  const saved = state.statusSettings && Array.isArray(state.statusSettings.list) ? state.statusSettings.list : null;
+  const list = (saved || STATUS_ORDER.map((name) => ({ name, color: defaultStatusColor(name) })))
+    .filter((x) => x && x.name).map((x) => ({ name: x.name, color: STATUS_COLORS[x.color] ? x.color : 'none' }));
+  const have = new Set(list.map((x) => x.name));
+  for (const sh of state.shows) if (sh.status && !have.has(sh.status)) { have.add(sh.status); list.push({ name: sh.status, color: defaultStatusColor(sh.status) }); }
+  return list;
+}
+export const statusNames = () => statusList().map((x) => x.name);
+export let statusColors = new Map(); // status name -> color key, rebuilt on render
+export function rebuildStatusColors() { statusColors = new Map(statusList().map((x) => [x.name, x.color])); }
 export function bucket(v, edges) {
   if (v == null) return '';
   for (const [max, label] of edges) if (v < max) return label;
@@ -28,7 +54,8 @@ export function rebuildActorIndex() {
 }
 export function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }
 export const CATS = [
-  { key: 'status', label: 'My status', get: (s) => s.status, order: STATUS_ORDER },
+  { key: 'status', label: 'My status', get: (s) => s.status, get order() { return statusNames(); } },
+  { key: 'rating', label: 'My rating', get: (s) => (s.rating ? stars(s.rating) : ''), order: [5, 4, 3, 2, 1].map(stars) },
   { key: 'want', label: 'Want to watch?', get: (s) => s.want, order: WANT_ORDER, hideBlank: true },
   { key: 'recommend', label: 'Use to recommend similar', get: (s) => s.recommend, order: ['Top 50', 'Yes'], hideBlank: true },
   { key: 'actor', label: 'Favorite actors', get: favNamesFor, multi: true, hideBlank: true },
@@ -50,6 +77,9 @@ export const CATS = [
   { key: 'confidence', label: 'Research confidence', get: (s) => s.confidence, order: ['High', 'Medium', 'Low', 'Check'] },
 ];
 export const catByKey = Object.fromEntries(CATS.map((c) => [c.key, c]));
+export function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+// Release-year range filters: ?yfrom=2010&yto=2019 (either end optional).
+export const RANGE = { yfrom: 'From', yto: 'To' };
 export const BLANK = '(not set)';
 export function valuesOf(cat, s) {
   const v = cat.get(s);
@@ -85,12 +115,33 @@ export function applyFilters(shows, filters, q) {
   // Same column: included values widen (OR). Excluded values drop any show that has one. Different columns narrow (AND).
   const inc = new Map();
   const exc = new Map();
-  for (const f of filters) { const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value); }
+  let yfrom = null;
+  let yto = null;
+  for (const f of filters) {
+    if (f.cat === 'yfrom') { yfrom = Number(f.value); continue; }
+    if (f.cat === 'yto') { yto = Number(f.value); continue; }
+    const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value);
+  }
   const nq = norm(q);
   return shows.filter((s) => {
+    if ((yfrom != null || yto != null) && (!s.year || (yfrom != null && s.year < yfrom) || (yto != null && s.year > yto))) return false;
     for (const [ck, vals] of inc) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     for (const [ck, vals] of exc) if (valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
-    if (nq && !norm(`${s.title} ${s.notes}`).includes(nq)) return false;
+    if (nq && !norm(searchText(s)).includes(nq)) return false;
     return true;
   });
+}
+// Every text value on a show (including fields added later and favorite actors), for the search bar.
+const SEARCH_SKIP = new Set(['id', 'poster', 'profile', 'type']);
+export function searchText(s) {
+  const out = [];
+  const walk = (v, k) => {
+    if (v == null || SEARCH_SKIP.has(k)) return;
+    if (Array.isArray(v)) v.forEach((x) => walk(x));
+    else if (typeof v === 'object') for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
+    else out.push(String(v));
+  };
+  walk(s);
+  out.push(...favNamesFor(s));
+  return out.join(' ');
 }

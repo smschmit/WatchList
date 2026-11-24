@@ -9,7 +9,7 @@ import { APP_VERSION } from '../version.js';
 // ---------- Account, backup, export ----------
 export const EXPORT_COLS = [
   ['Title', (s) => s.title], ['My Status', (s) => s.status], ['Want to Watch?', (s) => s.want],
-  ['Use to recommend similar shows', (s) => s.recommend], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
+  ['Use to recommend similar shows', (s) => s.recommend], ['My Rating', (s) => s.rating || ''], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
   ['Format', (s) => s.format], ['Release Year', (s) => s.year], ['End Year', (s) => s.endYear], ['Seasons', (s) => s.seasons],
   ['Episodes', (s) => s.episodes], ['Episode Length (min)', (s) => s.epLength], ['Total Hours', (s) => { const h = totalHours(s); return h == null ? '' : Math.round(h * 10) / 10; }],
   ['Show Status', (s) => s.showStatus], ['Genre', (s) => s.genres.join(', ')], ['Structure', (s) => s.structure],
@@ -64,6 +64,9 @@ export function viewAccount() {
   const unlinked = state.shows.filter((s) => !s.tmdb).length;
   return el('div', { class: 'account-page' },
     el('section', { class: 'card' }, el('h2', {}, 'Account'), el('div', { id: 'account' })),
+    el('section', { class: 'card edit-only' }, el('h2', {}, 'Status options'),
+      el('p', { class: 'small' }, 'Add statuses, rename them, pick their colors and set their order.'),
+      el('a', { class: 'btn', href: '#/statuses' }, 'Edit status options')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'TMDB'),
       el('p', { class: 'small' }, `${state.shows.length - unlinked} of ${state.shows.length} titles linked to TMDB (needed for cast and favorite actors).`),
       el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links')),

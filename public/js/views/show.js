@@ -2,6 +2,7 @@
 import { toNum, el, toast, uniq } from '../util.js';
 import { state, readOnly, save, canEdit, showById } from '../state.js';
 import { isMovie } from '../shows.js';
+import { stars } from '../categories.js';
 import { getCast, getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts } from '../library.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
@@ -30,7 +31,7 @@ export function viewShow(r) {
       factsLine(s),
       chips('genre', s.genres), chips('tag', s.tags),
       descriptionBox(s),
-      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
+      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
       el('label', { class: 'field wide' }, 'Notes', notes),
       s.researchNotes ? el('p', { class: 'small muted' }, `Research notes: ${s.researchNotes}`) : null,
       s.sources.length ? el('p', { class: 'small muted' }, `Source: ${s.sources.join(', ')}`) : null,
@@ -58,6 +59,17 @@ async function checkOne(s, btn) {
     save();
     toast(changes.length ? changes.join(' · ') : `TMDB: ${s.facts.status}. Nothing new since the last check.`);
   } catch (e) { toast(e.message); btn.disabled = false; }
+}
+// 1–5 stars. Tapping the current rating clears it.
+function ratingField(s) {
+  const box = el('div', { class: 'stars', role: 'group', 'aria-label': 'My rating' });
+  const draw = () => box.replaceChildren(...[1, 2, 3, 4, 5].map((n) => el('button', {
+    class: `star${s.rating >= n ? ' on' : ''}`, disabled: readOnly, title: s.rating === n ? 'Clear rating' : `${n} star${n > 1 ? 's' : ''}`,
+    'aria-pressed': String(s.rating === n),
+    onclick: () => { if (!canEdit()) return; s.rating = s.rating === n ? null : n; save({ quiet: true }); draw(); toast(s.rating ? `Rated ${stars(s.rating)}` : 'Rating cleared'); },
+  }, s.rating >= n ? '★' : '☆')));
+  draw();
+  return el('div', { class: 'field' }, 'My rating', box);
 }
 // TMDB's summary, collapsed so it doesn't push the pickers and notes down.
 export function descriptionBox(s) {
