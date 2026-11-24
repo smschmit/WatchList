@@ -5,7 +5,7 @@
 -- (Email changes require confirmation in Supabase, so the email is a stable identity.)
 create or replace function public.watchlist_is_editor() returns boolean
 language sql stable as $$
-  select lower(coalesce(auth.jwt() ->> 'email', '')) in ('smschmit@gmail.com')
+  select lower(coalesce(auth.jwt() ->> 'email', '')) in ('stephanie@bostonprivatetutors.com')
 $$;
 
 -- One row per owner holding their whole watch list.

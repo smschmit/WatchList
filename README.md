@@ -33,7 +33,7 @@ To re-import after changing the sheet: export the tab's values to `data/sheet-ex
 3. Authentication → Sign In / Providers: turn off **Allow new users to sign up**.
 4. Authentication → Users → **Add user → Create new user** for yourself (auto-confirm, with a password). Do the same later for anyone you want to share with.
 5. Project Settings → API: copy the **Project URL** and the **publishable key**.
-6. If your sign-in email isn't `smschmit@gmail.com`, change it in `supabase/setup.sql` (`watchlist_is_editor`) and in `public/config.js`.
+6. The owner (editing) account is `stephanie@bostonprivatetutors.com`. To use a different account, change it in `supabase/setup.sql` (`watchlist_is_editor`) and in `public/config.js`.
 
 ### 2. TMDB
 1. Make a free account at themoviedb.org → Settings → API → request an API key (personal use).
