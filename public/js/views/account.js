@@ -17,6 +17,7 @@ export const EXPORT_COLS = [
   ['Original Network/Platform', (s) => s.network], ['Favorite Actors', (s) => favNamesFor(s).join(', ')],
   ['Confidence', (s) => s.confidence], ['Research Notes', (s) => s.researchNotes],
   ['TMDB', (s) => (s.tmdb && s.tmdb.id ? `https://www.themoviedb.org/${s.tmdb.type}/${s.tmdb.id}` : '')],
+  ['TMDB Status (last check)', (s) => (s.facts ? s.facts.status : '')],
 ];
 export function exportRows() {
   render(); // make sure the favorite-actor index is current

@@ -3,7 +3,8 @@ import { toNum, el, toast, uniq } from '../util.js';
 import { state, readOnly, save, canEdit, showById } from '../state.js';
 import { isMovie } from '../shows.js';
 import { getCast, getDetails } from '../tmdb.js';
-import { linkShow, fillFromTmdb } from '../library.js';
+import { linkShow, fillFromTmdb, checkFacts } from '../library.js';
+import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
 
 export function viewShow(r) {
@@ -26,6 +27,7 @@ export function viewShow(r) {
       el('p', { class: 'muted' }, metaLine(s)),
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
+      factsLine(s),
       chips('genre', s.genres), chips('tag', s.tags),
       descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
@@ -35,9 +37,27 @@ export function viewShow(r) {
       el('div', { class: 'btn-row edit-only' },
         el('button', { class: 'btn', onclick: () => openEdit(s) }, 'Edit details'),
         s.tmdb && s.tmdb.id ? el('button', { class: 'btn', onclick: () => fillFromTmdb(s) }, 'Fill blanks from TMDB') : null,
+        s.tmdb && s.tmdb.id && s.tmdb.type === 'tv' ? el('button', { class: 'btn', onclick: (e) => checkOne(s, e.target) }, 'Check for updates') : null,
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   wrap.append(castSection(s));
   return wrap;
+}
+// What TMDB said at the last check, kept apart from your own show status label above it.
+function factsLine(s) {
+  const f = s.facts;
+  if (!f) return null;
+  return el('p', { class: 'small muted facts-line' },
+    `TMDB, checked ${fmtDate(f.checkedAt)}: ${[f.status, describeNext(f)].filter(Boolean).join(', ')}`,
+    !readOnly && updateFor(s) ? el('span', {}, ' · ', el('a', { href: '#/updates' }, 'something to review')) : null);
+}
+async function checkOne(s, btn) {
+  if (!canEdit()) return;
+  btn.disabled = true;
+  try {
+    const changes = await checkFacts(s);
+    save();
+    toast(changes.length ? changes.join(' · ') : `TMDB: ${s.facts.status}. Nothing new since the last check.`);
+  } catch (e) { toast(e.message); btn.disabled = false; }
 }
 // TMDB's summary, collapsed so it doesn't push the pickers and notes down.
 export function descriptionBox(s) {

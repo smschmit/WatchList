@@ -1,6 +1,7 @@
 // Browse categories (one per column), filtering and sorting.
 import { norm } from './util.js';
 import { state } from './state.js';
+import { FACT_ORDER } from './facts.js';
 import { isMovie, totalHours } from './shows.js';
 
 // ---------- Categories (one per column you can browse by) ----------
@@ -39,6 +40,7 @@ export const CATS = [
   { key: 'language', label: 'Language', get: (s) => s.languages, multi: true },
   { key: 'decade', label: 'Decade', get: (s) => (s.year ? `${Math.floor(s.year / 10) * 10}s` : ''), sortByValue: true },
   { key: 'showStatus', label: 'Show status', get: (s) => s.showStatus },
+  { key: 'tmdbStatus', label: 'Show status on TMDB (last check)', get: (s) => (s.facts ? s.facts.status : ''), order: FACT_ORDER, hideBlank: true },
   { key: 'structure', label: 'Structure', get: (s) => s.structure },
   { key: 'length', label: 'Episode length', get: (s) => (isMovie(s) ? bucket(s.epLength, MOVIE_EDGES) : bucket(s.epLength, LEN_EDGES)),
     order: [...LEN_EDGES, ...MOVIE_EDGES].map((e) => e[1]) },

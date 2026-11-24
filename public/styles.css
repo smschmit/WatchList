@@ -183,3 +183,10 @@ button.chip { font-family: inherit; cursor: pointer; }
 .chip .mark { font-weight: 700; }
 .chip .not { font-weight: 700; font-size: .78rem; text-transform: uppercase; }
 .picker-actions { margin-top: .6rem; align-items: center; }
+
+/* Updates page */
+.update-head { display: flex; gap: .75rem; align-items: flex-start; }
+.update-head .poster { flex: none; }
+.update-lines { margin: .4rem 0 0; padding-left: 1.1rem; }
+.update-lines li { margin: .1rem 0; }
+.facts-line { margin-top: -.25rem; }

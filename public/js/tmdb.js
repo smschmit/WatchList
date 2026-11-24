@@ -1,4 +1,5 @@
 // TMDB lookups through the Netlify function in netlify/functions/tmdb.mjs, and turning TMDB data into the list's columns.
+import { factsFromDetails, initialLabel } from './facts.js';
 
 export const CACHE_KEY = 'watchlist:tmdb-cache';
 
@@ -122,13 +123,14 @@ export async function detailsToShow(t, d) {
   d = d || await getDetails(t);
   if (t.type === 'tv') {
     const ended = /ended|canceled/i.test(d.status || '');
+    const facts = factsFromDetails(d);
     return {
       title: d.name, format: d.type === 'Miniseries' ? 'Miniseries' : 'Series',
       year: d.first_air_date ? Number(d.first_air_date.slice(0, 4)) : null,
       endYear: ended && d.last_air_date ? Number(d.last_air_date.slice(0, 4)) : null,
       seasons: d.number_of_seasons || null, episodes: d.number_of_episodes || null,
       epLength: (d.episode_run_time && d.episode_run_time[0]) || (d.last_episode_to_air && d.last_episode_to_air.runtime) || null,
-      showStatus: { 'Returning Series': 'Ongoing', Ended: 'Ended', Canceled: 'Canceled', 'In Production': 'In production', Planned: 'Upcoming' }[d.status] || d.status || '',
+      showStatus: initialLabel(facts), facts,
       genres: splitGenres(d.genres), network: (d.networks && d.networks[0] && d.networks[0].name) || '',
       country: d.origin_country && d.origin_country[0] ? regionName(d.origin_country[0]) : '',
       languages: d.original_language ? [langName(d.original_language)] : [],

@@ -2,7 +2,8 @@
 import { toast, today } from './util.js';
 import { state, normShow, normActor, save, canEdit, actorByTmdb } from './state.js';
 import { go } from './router.js';
-import { getPerson, detailsToShow } from './tmdb.js';
+import { tmdb, getPerson, detailsToShow } from './tmdb.js';
+import { applyFacts, factsFromDetails } from './facts.js';
 
 export async function toggleFavorite(p) {
   if (!canEdit()) return;
@@ -40,12 +41,13 @@ export async function fillFromTmdb(s) {
     const d = await detailsToShow(s.tmdb);
     const filled = [];
     for (const [k, v] of Object.entries(d)) {
-      if (k === 'title' || k === 'tmdb') continue;
+      if (k === 'title' || k === 'tmdb' || k === 'facts') continue;
       const empty = s[k] == null || s[k] === '' || (Array.isArray(s[k]) && !s[k].length);
       const has = v != null && v !== '' && !(Array.isArray(v) && !v.length);
       if (empty && has) { s[k] = v; filled.push(k); }
     }
     s.tmdb.poster = d.tmdb.poster;
+    if (d.facts) applyFacts(s, d.facts);
     save();
     toast(filled.length ? `Filled: ${filled.join(', ')}` : 'Nothing blank to fill.');
   } catch (e) { toast(e.message); }
@@ -60,4 +62,11 @@ export async function addFromTmdb(t, extra = {}) {
   state.shows.push(s);
   save({ quiet: true });
   return s;
+}
+
+// Ask TMDB about a linked TV show now (skipping the cache) and store the facts. Returns what changed since the last check.
+// The caller saves.
+export async function checkFacts(s) {
+  const d = await tmdb(`/tv/${s.tmdb.id}`);
+  return applyFacts(s, factsFromDetails(d));
 }
