@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Watch List</title>
+  <meta name="theme-color" content="#3a3f8f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">Watch List <span id="app-version" class="version"></span></a>
+    <form id="search-form" class="search" role="search">
+      <input id="search" type="search" placeholder="Search titles" aria-label="Search titles" autocomplete="off">
+    </form>
+    <span id="sync-status" class="sync-status" hidden></span>
+    <nav class="nav">
+      <a href="#/" data-nav="browse">Browse</a>
+      <a href="#/list" data-nav="list">All</a>
+      <a href="#/actors" data-nav="actors">Actors</a>
+      <a href="#/add" data-nav="add" class="edit-only">+ Add</a>
+      <a href="#/account" data-nav="account" aria-label="Account and backup">☰</a>
+    </nav>
+  </header>
+  <div id="viewer-banner" class="viewer-banner" hidden></div>
+  <main id="main"></main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="cloud.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+  </script>
+</body>
+</html>
