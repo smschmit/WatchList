@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.10';
+const APP_VERSION = '0.1.11';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -336,9 +336,23 @@ function applyFilters(shows, filters, q) {
   return shows.filter((s) => {
     for (const [ck, vals] of inc) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     for (const [ck, vals] of exc) if (valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
-    if (nq && !norm(`${s.title} ${s.notes}`).includes(nq)) return false;
+    if (nq && !norm(searchText(s)).includes(nq)) return false;
     return true;
   });
+}
+// Every text value on a show (including fields added later and favorite actors), for the search bar.
+const SEARCH_SKIP = new Set(['id', 'poster', 'profile', 'type']);
+function searchText(s) {
+  const out = [];
+  const walk = (v, k) => {
+    if (v == null || SEARCH_SKIP.has(k)) return;
+    if (Array.isArray(v)) v.forEach((x) => walk(x));
+    else if (typeof v === 'object') for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
+    else out.push(String(v));
+  };
+  walk(s);
+  out.push(...favNamesFor(s));
+  return out.join(' ');
 }
 function viewList(r) {
   if (!state.shows.length) return emptyState();
