@@ -4,6 +4,7 @@ import { readOnly, normShow, listShowFor } from '../state.js';
 import { go, syncLastHash, render } from '../router.js';
 import { getCast, getDetails, detailsToShow } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
+import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile } from '../ui.js';
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
@@ -29,8 +30,8 @@ export function viewTitle(r) {
     head.replaceChildren(poster(d.poster_path, 'w342', 'poster big'), el('div', { class: 'show-head-body' },
       el('h1', {}, info.title),
       el('p', { class: 'muted' }, metaLine(info)),
-      info.showStatus || info.country ? el('p', { class: 'small' },
-        [info.showStatus && `Show status: ${info.showStatus}`, [info.country, info.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
+      info.facts || info.country ? el('p', { class: 'small' },
+        [info.facts && `TMDB: ${[info.facts.status, describeNext(info.facts)].filter(Boolean).join(', ')}`, [info.country, info.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       info.genres.length ? el('p', { class: 'small' }, info.genres.join(' · ')) : null,
       d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null,
       d.overview ? el('p', {}, d.overview) : null,

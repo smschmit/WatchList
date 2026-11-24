@@ -11,10 +11,11 @@ import { viewActor, viewActors } from './views/actors.js';
 import { viewAdd } from './views/add.js';
 import { viewLink } from './views/link.js';
 import { viewAccount } from './views/account.js';
+import { viewUpdates } from './views/updates.js';
 import { startCloud } from './cloud.js';
 
 setViews({ browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors,
-  add: viewAdd, account: viewAccount, link: viewLink });
+  add: viewAdd, account: viewAccount, link: viewLink, updates: viewUpdates });
 setRenderer(render);
 setState(loadState());
 

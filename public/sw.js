@@ -1,9 +1,10 @@
 // Offline cache. Bump CACHE together with APP_VERSION in js/version.js when shipping changes.
 // Every file the app loads must be in ASSETS, or it won't work offline.
-const CACHE = 'watchlist-v12';
+const CACHE = 'watchlist-v13';
 const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest', 'icon.svg',
   'js/categories.js',
   'js/cloud.js',
+  'js/facts.js',
   'js/library.js',
   'js/main.js',
   'js/router.js',
@@ -20,7 +21,8 @@ const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.
   'js/views/link.js',
   'js/views/list.js',
   'js/views/show.js',
-  'js/views/title.js'];
+  'js/views/title.js',
+  'js/views/updates.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
