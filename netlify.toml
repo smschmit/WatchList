@@ -4,6 +4,11 @@
   publish = "public"
   command = "echo 'No build step'"
 
+[build.environment]
+  # The Supabase URL and publishable key are public by design (they're in public/config.js);
+  # access is enforced by the database rules. Don't fail the deploy over them.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_KEY,OWNER_EMAIL"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
