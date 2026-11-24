@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.10';
+const APP_VERSION = '0.1.12';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -26,14 +26,14 @@ function normShow(s) {
     country: s.country || '', languages: arr(s.languages), tags: arr(s.tags),
     network: s.network || '', confidence: s.confidence || '', researchNotes: s.researchNotes || '',
     status: s.status || '', want: s.want || '', recommend: s.recommend || '',
-    sources: arr(s.sources), notes: s.notes || '',
+    sources: arr(s.sources), notes: s.notes || '', rating: toNum(s.rating),
     tmdb: s.tmdb || null,
     ...pickExtra(s, SHOW_KEYS),
   };
 }
 const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'tmdb'];
+  'sources', 'notes', 'rating', 'tmdb'];
 function normActor(a) {
   return { id: a.id || `p${a.tmdbId}`, tmdbId: a.tmdbId, name: a.name || '', profile: a.profile || null,
     note: a.note || '', credits: arr(a.credits), creditsAt: a.creditsAt || null, ...pickExtra(a, ['id', 'tmdbId', 'name', 'profile', 'note', 'credits', 'creditsAt']) };
@@ -116,6 +116,30 @@ const today = () => new Date().toISOString().slice(0, 10);
 const STATUS_ORDER = ['Watching', 'Rewatching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
   'Paused Between Seasons', 'Waiting for Series End', 'Identified', 'Recommended', 'Finished', 'Dropped', 'Some'];
 const WANT_ORDER = ['A lot', 'Yes', "Once it's finished", 'Maybe'];
+
+// Status options: names, colors and order are editable (#/statuses) and saved in state.statusSettings.list.
+// Until edited, the list is STATUS_ORDER with the colors the app always used.
+const STATUS_COLORS = { blue: 'Blue', green: 'Green', teal: 'Teal', purple: 'Purple', pink: 'Pink', red: 'Red',
+  orange: 'Orange', yellow: 'Yellow', brown: 'Brown', gray: 'Gray', none: 'No color' };
+function defaultStatusColor(v) {
+  if (/^(re)?watching/i.test(v)) return 'green';
+  if (/^want/i.test(v)) return 'blue';
+  if (/finished/i.test(v)) return 'gray';
+  if (/recommended/i.test(v)) return 'purple';
+  if (/paused|waiting|restart/i.test(v)) return 'orange';
+  if (/dropped/i.test(v)) return 'red';
+  return 'none';
+}
+// Every status: the saved list in order, then any status a show has that isn't in it.
+function statusList() {
+  const saved = state.statusSettings && Array.isArray(state.statusSettings.list) ? state.statusSettings.list : null;
+  const list = (saved || STATUS_ORDER.map((name) => ({ name, color: defaultStatusColor(name) })))
+    .filter((x) => x && x.name).map((x) => ({ name: x.name, color: STATUS_COLORS[x.color] ? x.color : 'none' }));
+  const have = new Set(list.map((x) => x.name));
+  for (const sh of state.shows) if (sh.status && !have.has(sh.status)) { have.add(sh.status); list.push({ name: sh.status, color: defaultStatusColor(sh.status) }); }
+  return list;
+}
+const statusNames = () => statusList().map((x) => x.name);
 function bucket(v, edges) {
   if (v == null) return '';
   for (const [max, label] of edges) if (v < max) return label;
@@ -128,7 +152,8 @@ const SEASON_EDGES = [[2, '1 season'], [4, '2–3 seasons'], [7, '4–6 seasons'
 let actorIndex = new Map(); // "tv:123" -> [actor names], rebuilt on render
 function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }
 const CATS = [
-  { key: 'status', label: 'My status', get: (s) => s.status, order: STATUS_ORDER },
+  { key: 'status', label: 'My status', get: (s) => s.status, get order() { return statusNames(); } },
+  { key: 'rating', label: 'My rating', get: (s) => (s.rating ? stars(s.rating) : ''), order: [5, 4, 3, 2, 1].map(stars) },
   { key: 'want', label: 'Want to watch?', get: (s) => s.want, order: WANT_ORDER, hideBlank: true },
   { key: 'recommend', label: 'Use to recommend similar', get: (s) => s.recommend, order: ['Top 50', 'Yes'], hideBlank: true },
   { key: 'actor', label: 'Favorite actors', get: favNamesFor, multi: true, hideBlank: true },
@@ -149,6 +174,9 @@ const CATS = [
   { key: 'confidence', label: 'Research confidence', get: (s) => s.confidence, order: ['High', 'Medium', 'Low', 'Check'] },
 ];
 const catByKey = Object.fromEntries(CATS.map((c) => [c.key, c]));
+function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+// Release-year range filters: ?yfrom=2010&yto=2019 (either end optional).
+const RANGE = { yfrom: 'From', yto: 'To' };
 const BLANK = '(not set)';
 function valuesOf(cat, s) {
   const v = cat.get(s);
@@ -189,7 +217,7 @@ function listHash(filters, q, sort) {
 function filtersFrom(params) {
   const out = [];
   for (const [k, v] of params) {
-    if (catByKey[k]) out.push({ cat: k, value: v });
+    if (catByKey[k] || (RANGE[k] && /^\d{4}$/.test(v))) out.push({ cat: k, value: v });
     else if (k.startsWith('x-') && catByKey[k.slice(2)]) out.push({ cat: k.slice(2), value: v, not: true });
   }
   return out;
@@ -205,6 +233,7 @@ window.addEventListener('hashchange', () => {
 
 // ---------- Render ----------
 function render() {
+  statusColors = new Map(statusList().map((x) => [x.name, x.color]));
   actorIndex = new Map();
   for (const a of state.actors) for (const c of a.credits) {
     const k = `${c.type}:${c.id}`;
@@ -216,7 +245,7 @@ function render() {
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
   const main = document.getElementById('main');
-  const views = { browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink };
+  const views = { browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors, add: viewAdd, account: viewAccount, link: viewLink, statuses: viewStatuses };
   main.replaceChildren((views[r.name] || viewBrowse)(r));
   if (r.name === 'account' && window.cloud && window.cloud.renderAccount) window.cloud.renderAccount();
 }
@@ -241,7 +270,7 @@ function viewBrowse() {
     }
     const shown = cat.top ? entries.slice(0, cat.top) : entries;
     const sec = el('section', { class: 'cat card' },
-      el('h2', {}, cat.label),
+      el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null),
       el('div', { class: 'chips' }, shown.map(([v, n]) => chipLink(cat.key, v, n))));
     if (cat.top && entries.length > cat.top) {
       const more = el('button', { class: 'btn small', onclick: () => {
@@ -267,7 +296,7 @@ function statusSelect(s) {
       s.status = sel.value; sel.className = `pill status-select ${statusClass(s.status)}`;
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
     } },
-    uniq(['', ...SELECTS.status()]).map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+    SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
   // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
   sel.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
@@ -307,14 +336,11 @@ function openStatusMenu(sel, x, y) {
     document.addEventListener('keydown', key, true);
   });
 }
+let statusColors = new Map(); // status name -> color key, rebuilt on render
 function statusClass(v) {
-  if (/^(re)?watching/i.test(v)) return 'st-watching';
-  if (/^want/i.test(v)) return 'st-want';
-  if (/finished/i.test(v)) return 'st-finished';
-  if (/recommended/i.test(v)) return 'st-rec';
-  if (/paused|waiting|restart/i.test(v)) return 'st-paused';
-  if (/dropped/i.test(v)) return 'st-dropped';
-  return '';
+  if (!v) return '';
+  const c = statusColors.get(v) || defaultStatusColor(v);
+  return c === 'none' ? '' : `st-${c}`;
 }
 
 // ---------- List ----------
@@ -331,14 +357,35 @@ function applyFilters(shows, filters, q) {
   // Same column: included values widen (OR). Excluded values drop any show that has one. Different columns narrow (AND).
   const inc = new Map();
   const exc = new Map();
-  for (const f of filters) { const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value); }
+  let yfrom = null;
+  let yto = null;
+  for (const f of filters) {
+    if (f.cat === 'yfrom') { yfrom = Number(f.value); continue; }
+    if (f.cat === 'yto') { yto = Number(f.value); continue; }
+    const m = f.not ? exc : inc; if (!m.has(f.cat)) m.set(f.cat, new Set()); m.get(f.cat).add(f.value);
+  }
   const nq = norm(q);
   return shows.filter((s) => {
+    if ((yfrom != null || yto != null) && (!s.year || (yfrom != null && s.year < yfrom) || (yto != null && s.year > yto))) return false;
     for (const [ck, vals] of inc) if (!valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
     for (const [ck, vals] of exc) if (valuesOf(catByKey[ck], s).some((v) => vals.has(v))) return false;
-    if (nq && !norm(`${s.title} ${s.notes}`).includes(nq)) return false;
+    if (nq && !norm(searchText(s)).includes(nq)) return false;
     return true;
   });
+}
+// Every text value on a show (including fields added later and favorite actors), for the search bar.
+const SEARCH_SKIP = new Set(['id', 'poster', 'profile', 'type']);
+function searchText(s) {
+  const out = [];
+  const walk = (v, k) => {
+    if (v == null || SEARCH_SKIP.has(k)) return;
+    if (Array.isArray(v)) v.forEach((x) => walk(x));
+    else if (typeof v === 'object') for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
+    else out.push(String(v));
+  };
+  walk(s);
+  out.push(...favNamesFor(s));
+  return out.join(' ');
 }
 function viewList(r) {
   if (!state.shows.length) return emptyState();
@@ -352,7 +399,7 @@ function viewList(r) {
   for (const f of filters) {
     const rest = filters.filter((x) => x !== f);
     bar.append(el('a', { class: `chip active ${f.not ? 'excluded' : f.cat === 'status' ? statusClass(f.value) : ''}`, href: listHash(rest, q, sort), title: 'Remove filter' },
-      el('span', { class: 'chip-cat' }, `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
+      el('span', { class: 'chip-cat' }, RANGE[f.cat] ? `Year ${RANGE[f.cat].toLowerCase()}:` : `${catByKey[f.cat].label}:`), f.not ? el('span', { class: 'not' }, 'not') : null, f.value, el('span', { class: 'x' }, '×')));
   }
   if (q) bar.append(el('a', { class: 'chip active', href: listHash(filters, '', sort) }, `“${q}”`, el('span', { class: 'x' }, '×')));
   const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
@@ -403,7 +450,18 @@ function viewList(r) {
       if (!chips.childElementCount) chips.append(el('span', { class: 'muted small' }, 'Nothing here.'));
     };
     catSel.onchange = fill;
+    const yearInput = (key, label) => {
+      const cur = [...pending.values()].find((f) => f.cat === key);
+      const input = el('input', { type: 'number', inputmode: 'numeric', min: 1900, max: 2100, placeholder: 'any', value: cur ? cur.value : '', 'aria-label': `Release year ${label}`,
+        oninput: () => {
+          for (const k of [...pending.keys()]) if (pending.get(k).cat === key) pending.delete(k);
+          if (/^\d{4}$/.test(input.value)) pending.set(`${key}\u0000${input.value}`, { cat: key, value: input.value });
+          refresh();
+        } });
+      return el('label', { class: 'inline' }, ` ${label} `, input);
+    };
     picker.append(
+      el('div', { class: 'row year-range' }, el('span', {}, 'Release year'), yearInput('yfrom', 'from'), yearInput('yto', 'to')),
       el('div', { class: 'row' }, el('label', { class: 'inline' }, 'Filter by ', catSel)),
       el('p', { class: 'muted small' }, 'Tap values to pick as many as you like: once to include (✓), twice to exclude (✕), three times to clear. You can switch columns and keep picking.'),
       chips,
@@ -456,7 +514,7 @@ function showCard(s) {
 
 // ---------- Show page ----------
 const SELECTS = {
-  status: () => uniq([...STATUS_ORDER, ...state.shows.map((s) => s.status)]),
+  status: () => uniq(['', ...statusNames()]),
   want: () => uniq(['', ...WANT_ORDER, ...state.shows.map((s) => s.want)]),
   recommend: () => uniq(['', 'Top 50', 'Yes', ...state.shows.map((s) => s.recommend)]),
 };
@@ -483,7 +541,7 @@ function viewShow(r) {
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       chips('genre', s.genres), chips('tag', s.tags),
       descriptionBox(s),
-      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
+      el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
       el('label', { class: 'field wide' }, 'Notes', notes),
       s.researchNotes ? el('p', { class: 'small muted' }, `Research notes: ${s.researchNotes}`) : null,
       s.sources.length ? el('p', { class: 'small muted' }, `Source: ${s.sources.join(', ')}`) : null,
@@ -493,6 +551,17 @@ function viewShow(r) {
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   wrap.append(castSection(s));
   return wrap;
+}
+// 1–5 stars. Tapping the current rating clears it.
+function ratingField(s) {
+  const box = el('div', { class: 'stars', role: 'group', 'aria-label': 'My rating' });
+  const draw = () => box.replaceChildren(...[1, 2, 3, 4, 5].map((n) => el('button', {
+    class: `star${s.rating >= n ? ' on' : ''}`, disabled: readOnly, title: s.rating === n ? 'Clear rating' : `${n} star${n > 1 ? 's' : ''}`,
+    'aria-pressed': String(s.rating === n),
+    onclick: () => { if (!canEdit()) return; s.rating = s.rating === n ? null : n; save({ quiet: true }); draw(); toast(s.rating ? `Rated ${stars(s.rating)}` : 'Rating cleared'); },
+  }, s.rating >= n ? '★' : '☆')));
+  draw();
+  return el('div', { class: 'field' }, 'My rating', box);
 }
 // TMDB's summary, collapsed so it doesn't push the pickers and notes down.
 function descriptionBox(s) {
@@ -1088,7 +1157,7 @@ function viewLink() {
 // ---------- Account, backup, export ----------
 const EXPORT_COLS = [
   ['Title', (s) => s.title], ['My Status', (s) => s.status], ['Want to Watch?', (s) => s.want],
-  ['Use to recommend similar shows', (s) => s.recommend], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
+  ['Use to recommend similar shows', (s) => s.recommend], ['My Rating', (s) => s.rating || ''], ['Source', (s) => s.sources.join(', ')], ['Notes', (s) => s.notes],
   ['Format', (s) => s.format], ['Release Year', (s) => s.year], ['End Year', (s) => s.endYear], ['Seasons', (s) => s.seasons],
   ['Episodes', (s) => s.episodes], ['Episode Length (min)', (s) => s.epLength], ['Total Hours', (s) => { const h = totalHours(s); return h == null ? '' : Math.round(h * 10) / 10; }],
   ['Show Status', (s) => s.showStatus], ['Genre', (s) => s.genres.join(', ')], ['Structure', (s) => s.structure],
@@ -1142,6 +1211,9 @@ function viewAccount() {
   const unlinked = state.shows.filter((s) => !s.tmdb).length;
   return el('div', { class: 'account-page' },
     el('section', { class: 'card' }, el('h2', {}, 'Account'), el('div', { id: 'account' })),
+    el('section', { class: 'card edit-only' }, el('h2', {}, 'Status options'),
+      el('p', { class: 'small' }, 'Add statuses, rename them, pick their colors and set their order.'),
+      el('a', { class: 'btn', href: '#/statuses' }, 'Edit status options')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'TMDB'),
       el('p', { class: 'small' }, `${state.shows.length - unlinked} of ${state.shows.length} titles linked to TMDB (needed for cast and favorite actors).`),
       el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links')),
@@ -1153,6 +1225,94 @@ function viewAccount() {
         el('button', { class: 'btn edit-only', onclick: () => file.click() }, 'Import backup…'), file),
       el('p', { class: 'muted small' }, 'Update Google Sheet overwrites the “Watch list (app)” tab with the current list. Edits made in the sheet don’t come back into the app.')),
     el('p', { class: 'muted small' }, `Version ${APP_VERSION}. Show data and images from TMDB; this app is not endorsed or certified by TMDB.`));
+}
+
+// ---------- Status options ----------
+function viewStatuses() {
+  const list = statusList();
+  const used = new Map();
+  for (const sh of state.shows) if (sh.status) used.set(sh.status, (used.get(sh.status) || 0) + 1);
+  const commit = (next, msg) => {
+    if (!canEdit()) return false;
+    state.statusSettings = { ...(state.statusSettings || {}), list: next };
+    save();
+    if (msg) toast(msg);
+    return true;
+  };
+  const move = (from, to) => {
+    if (to < 0 || to >= list.length || to === from) return;
+    const next = [...list]; next.splice(to, 0, next.splice(from, 1)[0]);
+    commit(next);
+    requestAnimationFrame(() => document.querySelector(`.status-row[data-i="${to}"] .move-${to > from ? 'down' : 'up'}`)?.focus());
+  };
+  const rename = (i, input) => {
+    const old = list[i].name, name = input.value.trim();
+    if (name === old) return;
+    if (!name) { input.value = old; return toast('A status needs a name.'); }
+    if (list.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase())) { input.value = old; return toast(`There is already a “${name}” status.`); }
+    if (!canEdit()) { input.value = old; return; }
+    const n = used.get(old) || 0;
+    for (const sh of state.shows) if (sh.status === old) sh.status = name;
+    commit(list.map((x, j) => (j === i ? { ...x, name } : x)), n ? `Renamed; ${n} show${n === 1 ? '' : 's'} updated` : 'Renamed');
+  };
+  const remove = (i) => {
+    const n = used.get(list[i].name) || 0;
+    if (n) return toast(`${n} show${n === 1 ? ' has' : 's have'} this status. Change ${n === 1 ? 'it' : 'them'} first.`,
+      { label: 'Show them', run: () => go(listHash([{ cat: 'status', value: list[i].name }])) });
+    const gone = list[i];
+    if (commit(list.filter((_, j) => j !== i))) toast(`Removed “${gone.name}”`, { label: 'Undo', run: () => { const back = statusList().filter((x) => x.name !== gone.name); back.splice(i, 0, gone); commit(back); } });
+  };
+
+  let dragFrom = null;
+  const rows = list.map((st, i) => {
+    const name = el('input', { class: 'status-name', value: st.name, 'aria-label': 'Status name', onchange: () => rename(i, name) });
+    name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
+    const n = used.get(st.name) || 0;
+    const handle = el('span', { class: 'drag-handle', title: 'Drag to reorder' }, '⠿');
+    const row = el('li', { class: 'status-row card', 'data-i': i },
+      el('div', { class: 'status-row-top' },
+        handle,
+        el('span', { class: `pill ${st.color === 'none' ? '' : `st-${st.color}`}` }, st.name),
+        n ? el('a', { class: 'muted small', href: listHash([{ cat: 'status', value: st.name }]) }, `${n} show${n === 1 ? '' : 's'}`) : el('span', { class: 'muted small' }, 'unused'),
+        el('span', { class: 'spacer' }),
+        el('button', { class: 'btn small ghost move-up', type: 'button', disabled: i === 0, 'aria-label': `Move ${st.name} up`, onclick: () => move(i, i - 1) }, '↑'),
+        el('button', { class: 'btn small ghost move-down', type: 'button', disabled: i === list.length - 1, 'aria-label': `Move ${st.name} down`, onclick: () => move(i, i + 1) }, '↓'),
+        el('button', { class: 'btn small ghost danger', type: 'button', 'aria-label': `Remove ${st.name}`, title: 'Remove', onclick: () => remove(i) }, '✕')),
+      el('div', { class: 'status-row-edit' }, name,
+        el('div', { class: 'swatches', role: 'group', 'aria-label': `Color for ${st.name}` },
+          Object.entries(STATUS_COLORS).map(([c, label]) => el('button', { type: 'button', title: label, 'aria-label': label, 'aria-pressed': String(c === st.color),
+            class: `swatch ${c === 'none' ? 'swatch-none' : `st-${c}`} ${c === st.color ? 'current' : ''}`,
+            onclick: () => { if (c !== st.color) commit(list.map((x, j) => (j === i ? { ...x, color: c } : x))); } })))));
+    // Drag by the handle on desktop; the arrows work everywhere.
+    handle.draggable = true;
+    handle.addEventListener('dragstart', (e) => {
+      dragFrom = i; row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', st.name); e.dataTransfer.setDragImage(row, 20, 20);
+    });
+    handle.addEventListener('dragend', () => { dragFrom = null; row.classList.remove('dragging'); });
+    row.addEventListener('dragover', (e) => { if (dragFrom != null) { e.preventDefault(); row.classList.add('drop-target'); } });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+    row.addEventListener('drop', (e) => { e.preventDefault(); const f = dragFrom; dragFrom = null; if (f != null) move(f, i); });
+    return row;
+  });
+
+  const newName = el('input', { placeholder: 'New status', 'aria-label': 'New status name' });
+  const add = (e) => {
+    e.preventDefault();
+    const name = newName.value.trim();
+    if (!name) return;
+    if (list.some((x) => x.name.toLowerCase() === name.toLowerCase())) return toast(`There is already a “${name}” status.`);
+    const taken = new Set(list.map((x) => x.color));
+    const color = Object.keys(STATUS_COLORS).find((c) => c !== 'none' && !taken.has(c)) || 'none';
+    if (commit([...list, { name, color }], `Added “${name}”`))
+      requestAnimationFrame(() => document.querySelector('.status-add input')?.focus());
+  };
+  return el('div', { class: 'statuses-page' },
+    el('h1', {}, 'Status options'),
+    el('p', { class: 'muted small' }, 'This order is used in the status menus and on the browse page. Renaming a status updates every show that has it.'),
+    el('ol', { class: 'status-rows' }, rows),
+    el('form', { class: 'card status-add row', onsubmit: add }, newName, el('button', { class: 'btn primary', type: 'submit' }, 'Add')),
+    el('p', {}, el('a', { href: '#/account' }, '← Account')));
 }
 
 // ---------- Boot ----------
