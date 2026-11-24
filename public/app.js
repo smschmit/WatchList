@@ -3,7 +3,7 @@
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
 // Cast and filmographies come from TMDB through the Netlify function in netlify/functions/tmdb.mjs.
 
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.1.5';
 const STATE_KEY = 'watchlist:state';
 const REVIEW_KEY = 'watchlist:review';
 const CACHE_KEY = 'watchlist:tmdb-cache';
@@ -394,6 +394,7 @@ function viewShow(r) {
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       chips('genre', s.genres), chips('tag', s.tags),
+      descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend')),
       el('label', { class: 'field wide' }, 'Notes', notes),
       s.researchNotes ? el('p', { class: 'small muted' }, `Research notes: ${s.researchNotes}`) : null,
@@ -404,6 +405,17 @@ function viewShow(r) {
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   wrap.append(castSection(s));
   return wrap;
+}
+// TMDB's summary, collapsed so it doesn't push the pickers and notes down.
+function descriptionBox(s) {
+  if (!s.tmdb || !s.tmdb.id) return null;
+  const box = el('details', { class: 'description', hidden: true });
+  getDetails(s.tmdb).then((d) => {
+    if (!d.overview) return;
+    box.append(el('summary', {}, 'Description'), d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null, el('p', {}, d.overview));
+    box.hidden = false;
+  }).catch(() => {});
+  return box;
 }
 function deleteShow(s) {
   if (!canEdit() || !confirm(`Delete “${s.title}” from your list?`)) return;

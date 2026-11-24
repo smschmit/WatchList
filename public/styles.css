@@ -166,3 +166,6 @@ h3.section { font-size: .95rem; margin: 1rem 0 .4rem; }
   .edit-form { grid-template-columns: 1fr; }
   .browse { columns: 1; }
 }
+.description { margin: .6rem 0; }
+.description summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.description p { margin: .4rem 0 0; }
