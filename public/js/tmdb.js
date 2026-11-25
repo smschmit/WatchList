@@ -132,6 +132,23 @@ export function splitGenres(gs) {
 export function getDetails(t) {
   return cached(`details:${t.type}:${t.id}`, () => tmdb(`/${t.type}/${t.id}`));
 }
+// Main key art: backdrops with no text on them (iso_639_1 null), best voted first, at most 6.
+// TMDB doesn't tie backdrops to seasons, so these are the safest bet against spoilers, not a guarantee.
+export function getBackdrops(t) {
+  return cached(`backdrops:${t.type}:${t.id}`, async () => {
+    const d = await tmdb(`/${t.type}/${t.id}/images`, { include_image_language: 'null' });
+    return (d.backdrops || []).filter((b) => !b.iso_639_1 && b.file_path)
+      .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.vote_count || 0) - (a.vote_count || 0))
+      .slice(0, 6).map((b) => ({ path: b.file_path }));
+  });
+}
+// One still per episode of a season (what TMDB shows as the episode's picture). Only episode numbers are kept, no titles.
+export function getSeasonStills(t, n) {
+  return cached(`stills:${t.id}:${n}`, async () => {
+    const d = await tmdb(`/tv/${t.id}/season/${n}`);
+    return (d.episodes || []).filter((e) => e.still_path).map((e) => ({ ep: e.episode_number, path: e.still_path }));
+  });
+}
 export async function detailsToShow(t, d) {
   d = d || await getDetails(t);
   if (t.type === 'tv') {

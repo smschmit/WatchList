@@ -2,7 +2,7 @@
 // show status disagrees. Nothing on your list changes until you tap a button on a card.
 import { el, toast } from '../util.js';
 import { state, readOnly, save, canEdit } from '../state.js';
-import { checkFacts } from '../library.js';
+import { checkFacts, setStatus } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY } from '../facts.js';
 import { poster, statusSelect } from '../ui.js';
 
@@ -103,7 +103,7 @@ export function viewUpdates() {
           el('div', { class: 'muted small' }, `Your show status: ${s.showStatus || '—'} · TMDB: ${f.status}${f.nextAir ? ` · ${describeNext(f)}` : ''}`),
           el('ul', { class: 'update-lines' }, lines.map((l) => el('li', {}, l))))),
       el('div', { class: 'btn-row' },
-        u.ready ? el('button', { class: 'btn small primary', onclick: act(() => { s.status = READY; }) }, 'Mark ready to watch') : null,
+        u.ready ? el('button', { class: 'btn small primary', onclick: act(() => { setStatus(s, READY); }) }, 'Mark ready to watch') : null,
         u.conflict ? u.conflict.labels.map((l) => el('button', { class: 'btn small', onclick: act(() => { s.showStatus = l; }) }, `Show status: ${l}`)) : null,
         u.seasons ? el('button', { class: 'btn small', onclick: act(() => { s.seasons = u.seasons; if (f.episodes) s.episodes = f.episodes; }) },
           `Update to ${u.seasons} seasons`) : null,

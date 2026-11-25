@@ -26,12 +26,19 @@ export function defaultStatusColor(v) {
 export function statusList() {
   const saved = state.statusSettings && Array.isArray(state.statusSettings.list) ? state.statusSettings.list : null;
   const list = (saved || STATUS_ORDER.map((name) => ({ name, color: defaultStatusColor(name) })))
-    .filter((x) => x && x.name).map((x) => ({ name: x.name, color: STATUS_COLORS[x.color] ? x.color : 'none' }));
+    .filter((x) => x && x.name).map((x) => ({ name: x.name, color: STATUS_COLORS[x.color] ? x.color : 'none',
+      spoilers: typeof x.spoilers === 'boolean' ? x.spoilers : SPOILER_STATUSES.includes(x.name) }));
   const have = new Set(list.map((x) => x.name));
-  for (const sh of state.shows) if (sh.status && !have.has(sh.status)) { have.add(sh.status); list.push({ name: sh.status, color: defaultStatusColor(sh.status) }); }
+  for (const sh of state.shows) if (sh.status && !have.has(sh.status)) {
+    have.add(sh.status); list.push({ name: sh.status, color: defaultStatusColor(sh.status), spoilers: SPOILER_STATUSES.includes(sh.status) });
+  }
   return list;
 }
 export const statusNames = () => statusList().map((x) => x.name);
+// Statuses that turn a show's Show spoilers switch on (each status option carries the flag, so renaming keeps it).
+// Until a status list has been saved with the flag, these names have it.
+export const SPOILER_STATUSES = ['Finished', 'Rewatching', 'Dropped'];
+export const spoilerStatusNames = () => statusList().filter((x) => x.spoilers).map((x) => x.name);
 export let statusColors = new Map(); // status name -> color key, rebuilt on render
 export function rebuildStatusColors() { statusColors = new Map(statusList().map((x) => [x.name, x.color])); }
 export function bucket(v, edges) {
@@ -132,7 +139,7 @@ export function applyFilters(shows, filters, q) {
   });
 }
 // Every text value on a show (including fields added later and favorite actors), for the search bar.
-const SEARCH_SKIP = new Set(['id', 'poster', 'profile', 'type']);
+const SEARCH_SKIP = new Set(['id', 'poster', 'profile', 'type', 'spoilers']);
 export function searchText(s) {
   const out = [];
   const walk = (v, k) => {

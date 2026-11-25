@@ -29,12 +29,13 @@ export function normShow(s) {
     tmdb: s.tmdb || null,
     facts: s.facts || null, // what TMDB said at the last check (see facts.js); never edited by hand
     factsAck: s.factsAck || '', // the facts you dismissed on the Updates page
+    spoilers: !!s.spoilers, // Show spoilers switch: episode stills are shown only when on (images.js)
     ...pickExtra(s, SHOW_KEYS),
   };
 }
 export const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck'];
+  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck', 'spoilers'];
 export function normActor(a) {
   return { id: a.id || `p${a.tmdbId}`, tmdbId: a.tmdbId, name: a.name || '', profile: a.profile || null,
     note: a.note || '', credits: arr(a.credits), creditsAt: a.creditsAt || null, ...pickExtra(a, ['id', 'tmdbId', 'name', 'profile', 'note', 'credits', 'creditsAt']) };

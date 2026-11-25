@@ -5,6 +5,8 @@ import { userFromRequest, json } from '../lib/auth.mjs';
 const ALLOWED = [
   /^\/search\/(tv|movie|multi|person)$/,
   /^\/(tv|movie)\/\d+$/,
+  /^\/(tv|movie)\/\d+\/images$/,
+  /^\/tv\/\d+\/season\/\d+$/,
   /^\/tv\/\d+\/aggregate_credits$/,
   /^\/movie\/\d+\/credits$/,
   /^\/person\/\d+(\/combined_credits)?$/,
