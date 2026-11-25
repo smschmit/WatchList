@@ -155,7 +155,9 @@ function similarShowTags(s, counts, genres) {
 }
 function keywordTags(s, counts) {
   if (!s.tmdb || !s.tmdb.id) return Promise.resolve([]);
-  return cached(`keywords:${s.tmdb.type}:${s.tmdb.id}`, async () => keywordsOf({ keywords: await tmdb(`/${s.tmdb.type}/${s.tmdb.id}/keywords`) }))
+  // Keywords saved by Fill from TMDB, else ask TMDB.
+  const stored = s.sourced && Array.isArray(s.sourced.keywords) ? Promise.resolve(s.sourced.keywords) : null;
+  return (stored || cached(`keywords:${s.tmdb.type}:${s.tmdb.id}`, async () => keywordsOf({ keywords: await tmdb(`/${s.tmdb.type}/${s.tmdb.id}/keywords`) })))
     .then((kws) => [...new Set(kws.map((k) => matchExisting(k, counts)).filter((t) => t && !s.tags.includes(t)))]);
 }
 
