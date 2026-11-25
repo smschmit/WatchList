@@ -10,6 +10,7 @@
 import { el, toast } from './util.js';
 import { state, setState, setReadOnly, normalizeState, loadState, writeLocal } from './state.js';
 import { render } from './router.js';
+import { RECENT_KEY } from './recent.js';
 
 const cfg = window.WATCHLIST_CONFIG || {};
 const configured = !!(cfg.supabaseUrl && cfg.supabaseKey && window.supabase);
@@ -391,7 +392,7 @@ export function startCloud() {
     // Defer: Supabase recommends not awaiting other calls inside this callback.
     setTimeout(async () => {
       if (!s) {
-        try { localStorage.removeItem(BASE_KEY); localStorage.removeItem(BASE_KEY + ':at'); localStorage.removeItem(VIEW_KEY); } catch {}
+        try { localStorage.removeItem(BASE_KEY); localStorage.removeItem(BASE_KEY + ':at'); localStorage.removeItem(VIEW_KEY); localStorage.removeItem(RECENT_KEY); } catch {}
         setReadOnly(false);
         document.body.classList.remove('read-only');
         await enter('signed-out');

@@ -15,11 +15,13 @@ import { viewUpdates } from './views/updates.js';
 import { viewStatuses } from './views/statuses.js';
 import { viewFill } from './views/fill.js';
 import { viewTags } from './views/tags.js';
+import { viewRecent } from './views/recent.js';
 import { startCloud } from './cloud.js';
 import { startFastScroll } from './fastscroll.js';
 
 setViews({ browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors,
-  add: viewAdd, account: viewAccount, link: viewLink, updates: viewUpdates, statuses: viewStatuses, fill: viewFill, tags: viewTags });
+  add: viewAdd, account: viewAccount, link: viewLink, updates: viewUpdates, statuses: viewStatuses, fill: viewFill, tags: viewTags,
+  recent: viewRecent });
 setRenderer(render);
 setState(loadState());
 

@@ -202,6 +202,10 @@ h3.section { font-size: .95rem; margin: 1rem 0 .4rem; }
   main { padding: .7rem; }
   .topbar { padding-left: .7rem; padding-right: .7rem; }
   .search { order: 3; flex-basis: 100%; }
+  /* Seven links don't fit a narrow phone: tighter links, and the bar scrolls sideways instead of the page. */
+  .nav { max-width: 100%; overflow-x: auto; scrollbar-width: none; gap: 0; font-size: .9rem; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { padding: .35rem .28rem; }
   .show-head { flex-direction: column; }
   .poster.big { width: 120px; height: 180px; }
   .edit-form { grid-template-columns: 1fr; }
