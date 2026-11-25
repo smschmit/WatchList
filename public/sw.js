@@ -5,6 +5,7 @@ const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.
   'js/categories.js',
   'js/cloud.js',
   'js/facts.js',
+  'js/fastscroll.js',
   'js/images.js',
   'js/fill.js',
   'js/library.js',
