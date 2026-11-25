@@ -2,7 +2,7 @@
 // Entry point: loads the list, wires up the pages and the search box, then starts cloud sync.
 import { APP_VERSION } from './version.js';
 import { setState, loadState, setRenderer } from './state.js';
-import { route, go, listHash, filtersFrom, render, setViews, syncLastHash } from './router.js';
+import { route, go, listHash, filtersFrom, render, setViews, syncLastHash, goBack } from './router.js';
 import { viewBrowse } from './views/browse.js';
 import { viewList } from './views/list.js';
 import { viewShow } from './views/show.js';
@@ -24,6 +24,7 @@ setRenderer(render);
 setState(loadState());
 
 document.getElementById('app-version').textContent = `v${APP_VERSION}`;
+document.getElementById('back-btn').addEventListener('click', goBack);
 document.getElementById('search-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const r = route();
@@ -37,7 +38,7 @@ document.getElementById('search').addEventListener('input', (e) => {
     const r = route();
     const filters = r.name === 'list' ? filtersFrom(r.params) : [];
     const h = listHash(filters, e.target.value.trim(), r.name === 'list' ? r.params.get('sort') : '');
-    if (r.name === 'list') history.replaceState(null, '', h); else history.pushState(null, '', h);
+    if (r.name === 'list') history.replaceState(history.state, '', h); else history.pushState(null, '', h);
     syncLastHash();
     render();
   }, 250);

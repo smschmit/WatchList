@@ -36,7 +36,27 @@ export function recall(key, fallback) {
 export function remember(key, value) { pageMem.set(`${location.hash}\u0000${key}`, value); }
 export let lastHash = location.hash;
 // Call after changing the URL with history.replaceState/pushState, so scroll memory stays right.
-export function syncLastHash() { lastHash = location.hash; }
+export function syncLastHash() { lastHash = location.hash; stamp(); }
+
+// How many in-app pages sit behind this one, stamped on each history entry (so it survives reloads),
+// letting the Back button use the browser's Back without ever leaving the app.
+// Code that calls history.replaceState should pass history.state so the stamp is kept.
+let depth = 0;
+function stamp() {
+  const s = history.state;
+  if (s && typeof s.depth === 'number') depth = s.depth;
+  else { depth += 1; history.replaceState({ ...(s || {}), depth }, ''); }
+}
+if (!history.state || typeof history.state.depth !== 'number') history.replaceState({ ...(history.state || {}), depth: 0 }, '');
+else depth = history.state.depth;
+export function goBack() {
+  if (depth > 0) { history.back(); return; }
+  // Opened straight onto an inner page: nothing in-app behind it, so swap this page for Browse.
+  history.replaceState({ depth: 0 }, '', '#/');
+  lastHash = location.hash;
+  render();
+  window.scrollTo(0, 0);
+}
 // Where Back should land on the page just shown. Pages that fill in after a fetch are too short at first,
 // so the browser clamps the scroll; they call restoreScroll() once their content is in.
 let pendingScroll = null;
@@ -47,6 +67,7 @@ export function restoreScroll() {
 window.addEventListener('hashchange', () => {
   scrollPos.set(lastHash, window.scrollY);
   lastHash = location.hash;
+  stamp();
   render();
   const y = scrollPos.get(location.hash) || 0;
   pendingScroll = y ? { hash: location.hash, y } : null;
@@ -61,6 +82,7 @@ export function render() {
   rebuildStatusColors();
   rebuildActorIndex();
   const r = route();
+  document.getElementById('back-btn').hidden = depth === 0 && r.name === 'browse';
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === r.name));
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
