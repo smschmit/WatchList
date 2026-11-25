@@ -6,7 +6,8 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 
 ### Decisions
 
-- **Unlock rule:** episode stills unlock when the status is **Finished** or **Rewatching**. No separate button, and changing the status back locks them again.
+- **Unlock rule:** episode stills unlock when the status is **Finished**, **Rewatching** or **Dropped**. No separate button, and changing the status back locks them again.
+- **Movies:** always show backdrops, same top ~6 filter. No locking (movies have no episode stills).
 - **Before unlock:** poster plus a small set of show-level backdrops. TMDB doesn't date backdrops or tie them to seasons, so "early only" can't be enforced. Use the top ~6 by vote with no text (`iso_639_1` null), which tend to be main key art. If that still spoils something, fall back to poster only.
 - **Cast list:** leave as is. It keeps the full cast and the episode counts.
 - **Stills layout:** a collapsed "Stills" section on the show page, one row per season. A season's stills load only when you open that row, so nothing is fetched for locked shows or for seasons you don't open.
@@ -16,14 +17,10 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 
 - [ ] Allowlist `/tv/{id}/images` and `/tv/{id}/season/{n}/episode/{e}/images` (or `/tv/{id}/season/{n}` with `append_to_response=images`) in `netlify/functions/tmdb.mjs`.
 - [ ] Backdrop strip on the show page. Fetch with `append_to_response=images&include_image_language=en,null` on the existing details call, then filter and cap as above.
-- [ ] Stills section, rendered only when status is Finished or Rewatching, with lazy per-season loading and caching in the existing TMDB cache.
+- [ ] Backdrop strip on movie pages too (`/movie/{id}` details with the same `append_to_response=images`).
+- [ ] Stills section, rendered only when status is Finished, Rewatching or Dropped, with lazy per-season loading and caching in the existing TMDB cache.
 - [ ] Re-render the section when the status changes from the status menu.
 - [ ] TMDB credit line ("This product uses the TMDB API but is not endorsed or certified by TMDB").
-
-### Open questions
-
-- Movies have no episodes. Should movie backdrops follow the same rule (shown only after Finished), or always show?
-- Should Dropped shows ever unlock? Currently no.
 
 ### Maybe later
 
