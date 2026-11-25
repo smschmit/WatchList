@@ -127,6 +127,9 @@ textarea { width: 100%; resize: vertical; }
 .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .6rem; }
 .person { display: flex; align-items: center; gap: .6rem; padding: .4rem; border-radius: 10px; background: var(--bg); }
 .person-body { flex: 1; min-width: 0; }
+/* The photo links: block so the image doesn't sit on a text baseline with a gap under it. */
+.person > a:first-child, .credit > a:first-child { display: block; flex: none; }
+.person > a:first-child > *, .credit > a:first-child > * { display: block; }
 .person-name { font-weight: 600; color: var(--text); }
 .heart { font-size: 1.4rem; line-height: 1; background: none; border: none; color: var(--heart); cursor: pointer; padding: .3rem; }
 .heart:disabled { cursor: default; opacity: .6; }
