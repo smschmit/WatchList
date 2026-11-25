@@ -7,27 +7,41 @@ import { go } from './router.js';
 import { tmdb, getPerson, detailsToShow } from './tmdb.js';
 import { applyFacts, factsFromDetails } from './facts.js';
 
+// Hearting flips every heart for that person on screen straight away; the save and the page redraw wait until
+// after the browser has painted, and an add redraws once (when the actor's shows are in), not twice.
 export async function toggleFavorite(p) {
   if (!canEdit()) return;
   const existing = actorByTmdb(p.id);
   if (existing) {
     if (!confirm(`Remove ${existing.name} from favorite actors?`)) return;
     state.actors = state.actors.filter((a) => a !== existing);
-    save();
+    syncHearts(p.id, false);
+    afterPaint(() => save());
     return;
   }
   const a = normActor({ tmdbId: p.id, name: p.name, profile: p.profile });
   state.actors.push(a);
-  save();
+  syncHearts(p.id, true);
   toast(`♥ ${p.name}`);
-  try { await refreshCredits(a); } catch (e) { toast(`Saved ${p.name}, but couldn't load their shows: ${e.message}`); }
+  afterPaint(() => save({ quiet: true }));
+  try { await refreshCredits(a, { quiet: true }); } catch (e) { toast(`Saved ${p.name}, but couldn't load their shows: ${e.message}`); }
+  afterPaint(() => save());
 }
-export async function refreshCredits(a) {
+const afterPaint = (fn) => requestAnimationFrame(() => setTimeout(fn, 0));
+function syncHearts(id, on) {
+  document.querySelectorAll(`button.heart[data-person="${id}"]`).forEach((b) => {
+    b.classList.toggle('on', on);
+    b.textContent = on ? '♥' : '♡';
+    b.title = on ? 'Remove from favorites' : 'Add to favorites';
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+export async function refreshCredits(a, { quiet = false } = {}) {
   const person = await getPerson(a.tmdbId);
   a.credits = person.credits.filter((c) => !c.appearance).map(({ id, type, title, year }) => ({ id, type, title, year }));
   a.creditsAt = today();
   if (person.profile) a.profile = person.profile;
-  save();
+  if (!quiet) save();
 }
 
 export function linkShow(s, hit) {

@@ -144,7 +144,7 @@ export function personTile(p, sub) {
     heartBtn(p, fav));
 }
 export function heartBtn(p, fav) {
-  return el('button', { class: `heart ${fav ? 'on' : ''}`, title: fav ? 'Remove from favorites' : 'Add to favorites', 'aria-pressed': String(!!fav),
+  return el('button', { class: `heart ${fav ? 'on' : ''}`, 'data-person': String(p.id), title: fav ? 'Remove from favorites' : 'Add to favorites', 'aria-pressed': String(!!fav),
     disabled: readOnly, onclick: (e) => { e.preventDefault(); toggleFavorite(p); } }, fav ? '♥' : '♡');
 }
 
