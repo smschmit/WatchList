@@ -95,7 +95,7 @@ Show where each title is streaming, renting or for sale, and answer the main que
 - [ ] **Rent and buy:** show them at all? They're on almost every title and add noise. Proposed: collapsed on the show page, left out of browse.
 - [ ] **Stored on each show (synced) or on this device only?** Stored is needed for browse and Updates; device-only keeps the synced list smaller. Proposed: stored, ids only (a few bytes per show).
 - [ ] **Sheet export:** add a "Where to watch" column with your services' names?
-- [ ] **Auto-fill Network from it?** Proposed no: the original network and today's streamer are different facts (The Office: NBC, now Peacock).
+- [x] **Auto-fill Network from it?** Decided no: the original network and today's streamers are separate facts (The Office: NBC, now Peacock). Network stays your field.
 - [ ] Later: use My services to filter recommendations (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
 
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
