@@ -2,7 +2,7 @@
 import { el } from '../util.js';
 import { state, readOnly } from '../state.js';
 import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
-import { go, listHash, filtersFrom } from '../router.js';
+import { go, listHash, filtersFrom, recall, remember } from '../router.js';
 import { emptyState, statusClass, showCard } from '../ui.js';
 
 export function viewList(r) {
@@ -99,13 +99,13 @@ export function viewList(r) {
   const list = el('div', { class: 'show-list' });
   const PAGE = 150;
   let shown = 0;
-  const more = el('button', { class: 'btn', onclick: () => page() }, 'Show more');
-  function page() {
-    results.slice(shown, shown + PAGE).forEach((s) => list.append(showCard(s)));
-    shown += PAGE;
+  const more = el('button', { class: 'btn', onclick: () => { page(shown + PAGE); remember('shown', shown); } }, 'Show more');
+  function page(upTo) {
+    results.slice(shown, upTo).forEach((s) => list.append(showCard(s)));
+    shown = upTo;
     more.hidden = shown >= results.length;
   }
-  page();
+  page(recall('shown', PAGE));
   wrap.append(list, more);
   if (!results.length) wrap.append(el('p', { class: 'muted' }, 'No shows match.'));
   // A search that finds little on the list is often a show you want to add.
