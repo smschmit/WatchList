@@ -2,7 +2,8 @@
 import { norm } from './util.js';
 import { state } from './state.js';
 import { FACT_ORDER } from './facts.js';
-import { isMovie, totalHours } from './shows.js';
+import { isMovie, totalHours, fieldOf } from './shows.js';
+import { FICTION, TONE, ERA_ORDER, builtInWithin } from './sources.js';
 
 // ---------- Categories (one per column you can browse by) ----------
 export const STATUS_ORDER = ['Watching', 'Rewatching', 'Want to Watch', "Waiting on Release and Now It's Ready", 'Restart Planned', 'Paused',
@@ -53,6 +54,17 @@ export function rebuildActorIndex() {
   }
 }
 export function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }
+// Places roll up for browsing: a show set in Brooklyn also counts under New York City and US.
+// state.places holds what Wikidata said each place is in (saved by a fill); big cities and regions are built in.
+export function placeWithin(name) {
+  const p = state.places && state.places[name];
+  return (p && p.within) || builtInWithin(name);
+}
+export function settingValues(s) {
+  const out = [];
+  for (const n of fieldOf(s, 'setting')) for (const v of [n, ...placeWithin(n)]) if (!out.includes(v)) out.push(v);
+  return out;
+}
 export const CATS = [
   { key: 'status', label: 'My status', get: (s) => s.status, get order() { return statusNames(); } },
   { key: 'rating', label: 'My rating', get: (s) => (s.rating ? stars(s.rating) : ''), order: [5, 4, 3, 2, 1].map(stars) },
@@ -65,6 +77,10 @@ export const CATS = [
   { key: 'network', label: 'Network / platform', get: (s) => s.network, top: 30 },
   { key: 'country', label: 'Country', get: (s) => s.country.split(/\s*,\s*/), multi: true },
   { key: 'language', label: 'Language', get: (s) => s.languages, multi: true },
+  { key: 'fiction', label: 'Fiction', get: (s) => fieldOf(s, 'fiction'), order: FICTION },
+  { key: 'tone', label: 'Tone', get: (s) => fieldOf(s, 'tone'), order: TONE },
+  { key: 'era', label: 'Era (when it is set)', get: (s) => fieldOf(s, 'era'), multi: true, order: ERA_ORDER },
+  { key: 'setting', label: 'Setting', get: settingValues, multi: true, top: 40 },
   { key: 'decade', label: 'Decade', get: (s) => (s.year ? `${Math.floor(s.year / 10) * 10}s` : ''), sortByValue: true },
   { key: 'showStatus', label: 'Show status', get: (s) => s.showStatus },
   { key: 'tmdbStatus', label: 'Show status on TMDB (last check)', get: (s) => (s.facts ? s.facts.status : ''), order: FACT_ORDER, hideBlank: true },

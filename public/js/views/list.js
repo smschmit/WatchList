@@ -27,6 +27,10 @@ export function viewList(r) {
     Object.entries(SORTS).map(([k, [label]]) => el('option', { value: k, selected: k === sort }, label)));
   bar.append(el('span', { class: 'spacer' }), el('span', { class: 'muted' }, `${results.length} of ${state.shows.length}`), sel);
   wrap.append(bar);
+  if (!readOnly && results.length && (filters.length || q)) {
+    wrap.append(el('p', { class: 'small deck-link' }, el('a', { href: `#/tags/deck?${r.params.toString().replace(/(^|&)sort=[^&]*/, '')}` },
+      `Review tags for ${results.length === 1 ? 'this show' : `these ${results.length} shows`}`)));
+  }
 
   // Filter picker: pick several values (in any columns), then Apply. Tap once to include, again to exclude, again to clear.
   const picker = el('div', { class: 'picker card', hidden: true });
