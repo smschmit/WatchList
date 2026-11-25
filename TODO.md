@@ -125,6 +125,35 @@ Show where each title is streaming, renting or for sale, and answer the main que
 - [ ] **Viewers:** should people you share with see collections and suggestions, or only the list?
 - [ ] **Automatic checks:** later, optionally, a nightly check plus phone notifications. That needs a Supabase admin key stored as a secret in Netlify, and machine-generated data would then move to its own tables so a background job can't overwrite your edits. For now, the manual button.
 
+## Device storage (move to IndexedDB)
+
+Today the whole list is one JSON document (~650 KB), kept in one Supabase row and in the browser's localStorage. The browser keeps it twice (the list plus the "last synced" copy that the three-way merge compares against), so it already uses ~1.3 MB of localStorage's ~5 MB per-site cap. The TMDB cache (up to 120 responses, `public/js/tmdb.js`) and the viewer copy share the same space.
+
+The one-document model and the Supabase row are fine for one editor plus viewers; keep them. The problem is localStorage:
+- **The cap.** The list, the "last synced" copy and the TMDB cache all share ~5 MB.
+- **Silent failure.** `writeBase` in `public/js/cloud.js` swallows errors, so with storage full the "last synced" copy goes stale and the merge compares against an old copy. That could bring back a deleted show or misjudge which edit is newer (possible from the code, not reproduced). Only the main list write warns "storage is full".
+- **Blocking saves.** Every edit rewrites the whole 650 KB at once (`writeLocal` in `public/js/state.js`), briefly freezing the page.
+
+### Plan
+
+- [ ] **1. Measure (now).** Log the size of each localStorage key, and how much of the list is TMDB-derived (`facts`, `sourced`, actor `credits`) versus what you typed.
+- [ ] **2. Make storage failures loud (now).** If the "last synced" copy can't be saved, show an error and pause syncing instead of merging against a stale copy.
+- [ ] **3. Move device storage to IndexedDB (next few weeks, its own release).** No practical 5 MB cap, saves in the background, stores objects without converting to text. Moves: the list, the "last synced" copy, the viewer copy, the TMDB cache. Small settings (cards/rows) stay in localStorage. Mostly `state.js`, `cloud.js`, `tmdb.js`; startup has to wait for the data before drawing the list. Supabase doesn't change.
+  - One-time copy on first load: copy localStorage → IndexedDB, verify, only then clear the old keys; on any failure keep using the old data.
+  - Before updating: sync every device so Supabase holds a current copy. After: open the app on each device over the next few days to confirm the copy worked.
+  - Bump `APP_VERSION` and `CACHE`.
+- [ ] **4. Decide about TMDB-derived data (after step 1).** `facts` and `sourced` aren't throwaway: Updates compares against `facts`, and `sourced` supplies values for fields you haven't set. Move them out of the synced list only if they're most of the 650 KB.
+- Do step 3 sooner if: total storage passes ~3 MB, a "storage is full" message appears, a deleted show comes back, or a bulk import or image-heavy feature is planned.
+- Leave Supabase as one row unless you add editors or the list grows ~10x.
+
+### For the Zettelkasten app (later, separate app)
+
+Don't reuse the one-document design: images can't live in the JSON, the note count only grows, and edits are one note at a time. Do WatchList's IndexedDB move first and reuse the storage layer.
+- Supabase: a `notes` table (one row per note, `updated_at`, `deleted` flag), a `links` table rebuilt from `[[links]]` on save (for backlinks), images in a private Supabase Storage bucket named by a hash of their contents, Postgres full-text search.
+- Device: notes one record each in IndexedDB, cached images plus thumbnails, an outbox for offline edits and uploads.
+- Sync only changed notes; on a same-note conflict keep both versions and show it. Images never conflict (new image, new name).
+- Decide first: single editor or shared editing (shared needs real-time sync, a much bigger build); image volume (free plan has 1 GB, so shrink photos before upload); a Markdown + images export from the start.
+
 ## Housekeeping
 
 - [ ] When you add files under `public/js/`, list them in `ASSETS` in `public/sw.js`, and bump `CACHE` together with `APP_VERSION` in `public/js/version.js`.
