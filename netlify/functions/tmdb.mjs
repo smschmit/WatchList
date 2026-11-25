@@ -7,6 +7,7 @@ const ALLOWED = [
   /^\/(tv|movie)\/\d+$/,
   /^\/(tv|movie)\/\d+\/images$/,
   /^\/tv\/\d+\/season\/\d+$/,
+  /^\/(tv|movie)\/\d+\/keywords$/,
   /^\/tv\/\d+\/aggregate_credits$/,
   /^\/movie\/\d+\/credits$/,
   /^\/person\/\d+(\/combined_credits)?$/,

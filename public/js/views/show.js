@@ -1,13 +1,16 @@
 // A show on the list: details, pickers, notes, edit dialog, cast.
 import { toNum, el, toast, uniq } from '../util.js';
 import { state, readOnly, save, canEdit, showById } from '../state.js';
-import { isMovie } from '../shows.js';
+import { isMovie, fieldOf, isSourced, setField, SOURCED_KEYS } from '../shows.js';
+import { FICTION, TONE, ERA_ORDER } from '../sources.js';
+import { fillOne } from '../fill.js';
 import { stars } from '../categories.js';
 import { getCast, getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
+import { listHash } from '../router.js';
 
 export function viewShow(r) {
   const s = showById(r.id);
@@ -37,7 +40,7 @@ export function viewShow(r) {
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       factsLine(s),
-      chips('genre', s.genres), chips('tag', s.tags),
+      chips('genre', s.genres), sourcedFields(s), chips('tag', s.tags),
       descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
       el('label', { class: 'field wide' }, 'Notes', notes),
@@ -45,7 +48,8 @@ export function viewShow(r) {
       s.sources.length ? el('p', { class: 'small muted' }, `Source: ${s.sources.join(', ')}`) : null,
       el('div', { class: 'btn-row edit-only' },
         el('button', { class: 'btn', onclick: () => openEdit(s) }, 'Edit details'),
-        s.tmdb && s.tmdb.id ? el('button', { class: 'btn', onclick: () => fillFromTmdb(s) }, 'Fill blanks from TMDB') : null,
+        s.tmdb && s.tmdb.id ? el('button', { class: 'btn', onclick: (e) => fillBoth(s, e.target) }, 'Fill blanks from TMDB') : null,
+        el('a', { class: 'btn', href: `#/tags/deck?id=${encodeURIComponent(s.id)}` }, 'Review in Tag Deck'),
         s.tmdb && s.tmdb.id && s.tmdb.type === 'tv' ? el('button', { class: 'btn', onclick: (e) => checkOne(s, e.target) }, 'Check for updates') : null,
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   if (images) wrap.append(images);
@@ -59,6 +63,27 @@ function factsLine(s) {
   return el('p', { class: 'small muted facts-line' },
     `TMDB, checked ${fmtDate(f.checkedAt)}: ${[f.status, describeNext(f)].filter(Boolean).join(', ')}`,
     !readOnly && updateFor(s) ? el('span', {}, ' · ', el('a', { href: '#/updates' }, 'something to review')) : null);
+}
+// Fiction · Tone · Era · Setting, each a link to that browse value. Values from TMDB/Wikidata are marked.
+const FIELD_LABELS = { fiction: 'Fiction', tone: 'Tone', era: 'Era', setting: 'Setting' };
+function sourcedFields(s) {
+  const bits = SOURCED_KEYS.map((k) => {
+    const v = fieldOf(s, k);
+    const list = Array.isArray(v) ? v : v ? [v] : [];
+    if (!list.length) return null;
+    const src = isSourced(s, k) && s.sourced.from && s.sourced.from[k];
+    return el('span', { class: 'field-bit' }, el('span', { class: 'muted' }, `${FIELD_LABELS[k]}: `),
+      list.map((x, i) => [i ? ', ' : '', el('a', { href: listHash([{ cat: k, value: x }]) }, x)]),
+      isSourced(s, k) ? el('span', { class: 'src', title: src === 'guess' ? 'Guessed: nothing said otherwise' : `From ${src || 'TMDB'}; Edit details to change` }, src === 'guess' ? ' (guess)' : ' ·') : null);
+  }).filter(Boolean);
+  return bits.length ? el('p', { class: 'small sourced-fields' }, bits.map((b, i) => [i ? '  ' : '', b])) : null;
+}
+async function fillBoth(s, btn) {
+  if (!canEdit()) return;
+  btn.disabled = true;
+  await fillFromTmdb(s);
+  try { await fillOne(s); } catch (e) { toast(e.message); }
+  btn.disabled = false;
 }
 async function checkOne(s, btn) {
   if (!canEdit()) return;
@@ -104,17 +129,22 @@ export const EDIT_FIELDS = [
   ['title', 'Title'], ['format', 'Format'], ['year', 'Release year', 'number'], ['endYear', 'End year', 'number'],
   ['seasons', 'Seasons', 'number'], ['episodes', 'Episodes', 'number'], ['epLength', 'Episode length (min)', 'number'],
   ['showStatus', 'Show status'], ['genres', 'Genres (comma-separated)', 'list'], ['structure', 'Structure'],
-  ['country', 'Country'], ['languages', 'Languages (comma-separated)', 'list'], ['tags', 'Tags (comma-separated)', 'list'],
+  ['country', 'Country'], ['languages', 'Languages (comma-separated)', 'list'],
+  ['fiction', 'Fiction', 'choice', FICTION], ['tone', 'Tone', 'choice', TONE], ['era', `Era (comma-separated: ${ERA_ORDER.join(', ')})`, 'list'],
+  ['setting', 'Setting (comma-separated places, most specific: Brooklyn, not US)', 'list'], ['tags', 'Tags (comma-separated)', 'list'],
   ['network', 'Network / platform'], ['sources', 'Source (comma-separated)', 'list'], ['confidence', 'Research confidence'],
   ['researchNotes', 'Research notes'],
 ];
+const cur = (s, k) => (SOURCED_KEYS.includes(k) ? fieldOf(s, k) : s[k]);
 export function openEdit(s) {
   if (!canEdit()) return;
   const dlg = el('dialog', { class: 'edit-dialog' });
   const form = el('form', { method: 'dialog', class: 'edit-form' },
     el('h2', {}, `Edit ${s.title}`),
-    EDIT_FIELDS.map(([k, label, type]) => el('label', { class: 'field' }, label,
-      el('input', { name: k, type: type === 'number' ? 'number' : 'text', value: type === 'list' ? s[k].join(', ') : s[k] ?? '',
+    EDIT_FIELDS.map(([k, label, type, opts]) => el('label', { class: 'field' }, label,
+      isSourced(s, k) ? el('span', { class: 'muted small' }, ' (from TMDB/Wikidata)') : null,
+      type === 'choice' ? el('select', { name: k }, ['', ...opts].map((v) => el('option', { value: v, selected: v === fieldOf(s, k) }, v || '—'))) :
+      el('input', { name: k, type: type === 'number' ? 'number' : 'text', value: type === 'list' ? cur(s, k).join(', ') : cur(s, k) ?? '',
         list: ['format', 'showStatus', 'structure', 'network', 'country', 'confidence'].includes(k) ? `dl-${k}` : null }))),
     ['format', 'showStatus', 'structure', 'network', 'country', 'confidence'].map((k) =>
       el('datalist', { id: `dl-${k}` }, uniq(state.shows.map((x) => x[k])).filter(Boolean).sort().map((v) => el('option', { value: v })))),
@@ -126,7 +156,9 @@ export function openEdit(s) {
     if (dlg.returnValue === 'save') {
       for (const [k, , type] of EDIT_FIELDS) {
         const v = form.elements[k].value.trim();
-        s[k] = type === 'number' ? toNum(v) : type === 'list' ? v.split(',').map((x) => x.trim()).filter(Boolean) : v;
+        const val = type === 'number' ? toNum(v) : type === 'list' ? v.split(',').map((x) => x.trim()).filter(Boolean) : v;
+        if (SOURCED_KEYS.includes(k)) { if (JSON.stringify(val) !== JSON.stringify(fieldOf(s, k))) setField(s, k, val); }
+        else s[k] = val;
       }
       if (!s.title) s.title = 'Untitled';
       save();

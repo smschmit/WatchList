@@ -1,5 +1,6 @@
 // TMDB lookups through the Netlify function in netlify/functions/tmdb.mjs, and turning TMDB data into the list's columns.
 import { factsFromDetails, initialLabel } from './facts.js';
+import { regionName, langName } from './sources.js';
 
 export const CACHE_KEY = 'watchlist:tmdb-cache';
 
@@ -111,15 +112,7 @@ export async function searchTmdbPage(query, type, page = 1) {
 }
 
 // Turn TMDB details into the sheet's columns.
-export const regionName = (() => {
-  let dn; try { dn = new Intl.DisplayNames(['en'], { type: 'region' }); } catch {}
-  const short = { US: 'US', GB: 'UK', CA: 'Canada', AU: 'Australia', NZ: 'NZ', KR: 'South Korea' };
-  return (c) => short[c] || (dn ? dn.of(c) : c);
-})();
-export const langName = (() => {
-  let dn; try { dn = new Intl.DisplayNames(['en'], { type: 'language' }); } catch {}
-  return (c) => (dn && c ? dn.of(c) : c || '');
-})();
+export { regionName, langName } from './sources.js';
 export function splitGenres(gs) {
   const out = [];
   for (const g of gs || []) for (let part of g.name.split(' & ')) {
