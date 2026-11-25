@@ -96,8 +96,13 @@ export function cardClick(href) {
     if (e.metaKey || e.ctrlKey) window.open(href, '_blank'); else go(href);
   };
 }
+// The favorite actors in a title, as a ♥ line. `t` is a show on the list or a TMDB title ({ type, id }).
+// `skip`: a name to leave out (on an actor's own page every credit has them). Nothing when there are none.
+export function favLine(t, { skip = null, cls = 'small' } = {}) {
+  const names = (!t ? [] : t.tmdb ? favNamesFor(t) : t.type && t.id ? favNamesFor({ tmdb: t }) : []).filter((n) => n !== skip);
+  return names.length ? el('div', { class: `${cls} fav-line` }, '♥ ', names.join(', ')) : null;
+}
 export function showCard(s) {
-  const favs = favNamesFor(s);
   const href = `#/show/${encodeURIComponent(s.id)}`;
   // A div, not a link, so the status menu inside it works; tapping anywhere else opens the show.
   return el('div', { class: 'show-card', onclick: cardClick(href) },
@@ -106,7 +111,7 @@ export function showCard(s) {
       el('div', { class: 'show-card-title' }, el('a', { href }, s.title), statusSelect(s)),
       el('div', { class: 'muted small' }, metaLine(s)),
       el('div', { class: 'small' }, [...s.genres, ...s.tags.slice(0, 4)].join(' · ')),
-      favs.length ? el('div', { class: 'small fav-line' }, '♥ ', favs.join(', ')) : null));
+      favLine(s)));
 }
 
 // Compact version of showCard for scanning long lists: title and status, then year, format, genres and tags on one cut-off line.
@@ -115,7 +120,8 @@ export function showRow(s) {
   const meta = [years(s), s.format, ...s.genres, ...s.tags].filter(Boolean).join(' · ');
   return el('div', { class: 'show-row', onclick: cardClick(href) },
     el('a', { class: 'show-row-title', href }, s.title), statusSelect(s),
-    el('div', { class: 'show-row-meta muted small' }, meta));
+    el('div', { class: 'show-row-meta muted small' }, meta),
+    favLine(s, { cls: 'small show-row-meta' }));
 }
 export const DENSITY_KEY = 'watchlist:density';
 export function getDensity() { try { return localStorage.getItem(DENSITY_KEY) === 'rows' ? 'rows' : 'cards'; } catch { return 'cards'; } }
@@ -201,6 +207,7 @@ export function tmdbHit(h, { onclick, picked = false, extra = null } = {}) {
     el('button', { class: `tmdb-hit${picked ? ' picked' : ''}`, 'aria-pressed': picked ? 'true' : null, onclick },
       poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`,
         original ? el('div', { class: 'muted small' }, original) : null,
+        favLine(h),
         el('div', { class: 'muted small clamp' }, h.overview))),
     extra ? el('div', { class: 'hit-actions' }, extra, details) : details);
 }

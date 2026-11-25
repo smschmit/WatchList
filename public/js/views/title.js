@@ -5,7 +5,7 @@ import { go, syncLastHash, render } from '../router.js';
 import { getCast, getDetails, detailsToShow } from '../tmdb.js';
 import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
 import { describeNext } from '../facts.js';
-import { poster, metaLine, personTile } from '../ui.js';
+import { poster, metaLine, personTile, favLine } from '../ui.js';
 import { backdropCard } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { recordView } from '../recent.js';
@@ -51,6 +51,7 @@ export function viewTitle(r) {
     head.replaceChildren(poster(d.poster_path, 'w342', 'poster big'), el('div', { class: 'show-head-body' },
       el('h1', {}, info.title),
       el('p', { class: 'muted' }, metaLine(info)),
+      favLine(t, { cls: '' }),
       info.facts || info.country ? el('p', { class: 'small' },
         [info.facts && `TMDB: ${[info.facts.status, describeNext(info.facts)].filter(Boolean).join(', ')}`, [info.country, info.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       info.genres.length ? el('p', { class: 'small' }, info.genres.join(' · ')) : null,

@@ -4,7 +4,7 @@ import { el, toast } from '../util.js';
 import { state, readOnly, save, canEdit } from '../state.js';
 import { checkFacts, setStatus } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
-import { poster, statusSelect, cardClick } from '../ui.js';
+import { poster, statusSelect, cardClick, favLine } from '../ui.js';
 import { statusNames } from '../categories.js';
 
 // Kept outside the view so a check keeps going (and its progress shows) if you open a show and come back.
@@ -105,6 +105,7 @@ export function viewUpdates() {
         el('div', {},
           el('div', { class: 'show-card-title' }, el('a', { href }, el('b', {}, s.title)), statusSelect(s)),
           el('div', { class: 'muted small' }, `Your show status: ${s.showStatus || '—'} · TMDB: ${f.status}${f.nextAir ? ` · ${describeNext(f)}` : ''}`),
+          favLine(s),
           el('ul', { class: 'update-lines' }, lines.map((l) => el('li', {}, l))))),
       el('div', { class: 'btn-row' },
         u.ready ? el('button', { class: 'btn small primary', onclick: act(() => { setStatus(s, READY); }) }, 'Mark ready to watch') : null,

@@ -6,7 +6,7 @@ import { go, listHash, recall, remember, restoreScroll } from '../router.js';
 import { getPerson } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
 import { recordView } from '../recent.js';
-import { statusSelect, poster, heartBtn, titleHash, cardClick } from '../ui.js';
+import { statusSelect, poster, heartBtn, titleHash, cardClick, favLine } from '../ui.js';
 
 // ---------- Actor page ----------
 export function viewActor(r) {
@@ -67,7 +67,8 @@ export function viewActor(r) {
       return el('div', { class: `credit clickable ${mine ? 'mine' : ''}`, onclick: cardClick(href) }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
         el('div', { class: 'credit-body' },
           el('div', {}, el('a', { class: 'credit-title', href }, el('b', {}, c.title)), ` ${c.year || ''} · ${c.type === 'tv' ? 'TV' : 'Movie'}`),
-          el('div', { class: 'muted small' }, [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · '))),
+          el('div', { class: 'muted small' }, [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · ')),
+          favLine(c, { skip: p.name })),
         action);
     }
     body.replaceChildren(el('h2', {}, 'Filmography'), controls, listBox);
