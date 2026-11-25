@@ -189,6 +189,7 @@ progress { width: 100%; height: 10px; }
 .status-menu-item { border: 1px solid transparent; font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; text-align: left; }
 .status-menu-item:hover, .status-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .status-menu-item.current { border-color: currentColor; }
+@media (pointer: coarse) { .status-menu { gap: .35rem; padding: .45rem; } .status-menu-item { font-size: .9rem; padding: .45rem .8rem; } }
 .show-card-title a { color: inherit; }
 .edit-form { padding: 1.2rem; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .edit-form h2, .edit-form .btn-row { grid-column: 1 / -1; }

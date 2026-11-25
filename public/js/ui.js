@@ -30,18 +30,28 @@ export function statusSelect(s) {
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}${unlocked ? ' · spoilers on' : ''}`);
     } },
     SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
-  // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
+  // Open our own colored menu instead of the browser's dropdown (native pickers can't show status colors).
+  // With a mouse it opens at the pointer; on touch, a tap (not a scroll) opens it over the pill.
   sel.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
     e.preventDefault();
     openStatusMenu(sel, e.clientX, e.clientY);
+  });
+  let touch = null;
+  sel.addEventListener('touchstart', (e) => { const t = e.touches[0]; touch = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null; }, { passive: true });
+  sel.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    if (!touch || Math.hypot(t.clientX - touch.x, t.clientY - touch.y) > 10) return;
+    e.preventDefault(); // stops the native picker and the synthetic click
+    const r = sel.getBoundingClientRect();
+    openStatusMenu(sel, r.left + r.width / 2, r.top + r.height / 2);
   });
   return sel;
 }
 // A pill menu placed so the current status sits right under the mouse.
 export function openStatusMenu(sel, x, y) {
   document.querySelector('.status-menu')?.remove();
-  const close = () => { menu.remove(); document.removeEventListener('mousedown', outside, true); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); document.removeEventListener('keydown', key, true); };
+  const close = () => { menu.remove(); document.removeEventListener('mousedown', outside, true); window.removeEventListener('scroll', scrolled, true); document.removeEventListener('touchstart', outside, true); window.removeEventListener('resize', close); document.removeEventListener('keydown', key, true); };
   const pick = (v) => { close(); if (v !== sel.value) { sel.value = v; sel.dispatchEvent(new Event('change')); } sel.focus(); };
   const items = [...sel.options].map((o) => el('button', { type: 'button', role: 'menuitem',
     class: `pill status-menu-item ${statusClass(o.value)} ${o.value === sel.value ? 'current' : ''}`, onclick: () => pick(o.value) }, o.textContent));
@@ -57,6 +67,7 @@ export function openStatusMenu(sel, x, y) {
   Object.assign(menu.style, { top: `${top}px`, left: `${left}px` });
   cur.focus({ preventScroll: true });
   const outside = (e) => { if (!menu.contains(e.target)) close(); };
+  const scrolled = (e) => { if (!menu.contains(e.target)) close(); };
   const key = (e) => {
     const i = items.indexOf(document.activeElement);
     if (e.key === 'Escape') { e.preventDefault(); close(); sel.focus(); }
@@ -64,7 +75,8 @@ export function openStatusMenu(sel, x, y) {
   };
   setTimeout(() => {
     document.addEventListener('mousedown', outside, true);
-    window.addEventListener('scroll', close, true);
+    document.addEventListener('touchstart', outside, true);
+    window.addEventListener('scroll', scrolled, true);
     window.addEventListener('resize', close);
     document.addEventListener('keydown', key, true);
   });
