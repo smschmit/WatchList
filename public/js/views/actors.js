@@ -5,7 +5,7 @@ import { favNamesFor } from '../categories.js';
 import { go, listHash } from '../router.js';
 import { getPerson } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
-import { statusSelect, poster, heartBtn, titleHash } from '../ui.js';
+import { statusSelect, poster, heartBtn, titleHash, cardClick } from '../ui.js';
 
 // ---------- Actor page ----------
 export function viewActor(r) {
@@ -60,7 +60,7 @@ export function viewActor(r) {
           if (s) { toast(`Added ${s.title}`, { label: 'Open', run: () => go(`#/show/${s.id}`) }); fill(); updateCount(); } else e.target.disabled = false;
         } }, '+ Add');
       const href = titleHash(c, `Actor: ${p.name}`);
-      return el('div', { class: `credit ${mine ? 'mine' : ''}` }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
+      return el('div', { class: `credit clickable ${mine ? 'mine' : ''}`, onclick: cardClick(href) }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
         el('div', { class: 'credit-body' },
           el('div', {}, el('a', { class: 'credit-title', href }, el('b', {}, c.title)), ` ${c.year || ''} · ${c.type === 'tv' ? 'TV' : 'Movie'}`),
           el('div', { class: 'muted small' }, [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · '))),
@@ -82,7 +82,7 @@ export function viewActors() {
   const actors = [...state.actors].sort((a, b) => a.name.localeCompare(b.name));
   wrap.append(el('div', { class: 'cast-grid' }, actors.map((a) => {
     const n = state.shows.filter((s) => favNamesFor(s).includes(a.name)).length;
-    return el('div', { class: 'person' },
+    return el('div', { class: 'person clickable', onclick: cardClick(`#/actor/${a.tmdbId}`) },
       el('a', { href: `#/actor/${a.tmdbId}` }, poster(a.profile, 'w185', 'face')),
       el('div', { class: 'person-body' }, el('a', { class: 'person-name', href: `#/actor/${a.tmdbId}` }, a.name),
         el('div', { class: 'small' }, n ? el('a', { href: listHash([{ cat: 'actor', value: a.name }]) }, `${n} on your list`) : el('span', { class: 'muted' }, 'none on your list')),

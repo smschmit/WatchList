@@ -4,7 +4,7 @@ import { el, toast } from '../util.js';
 import { state, readOnly, save, canEdit } from '../state.js';
 import { checkFacts, setStatus } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
-import { poster, statusSelect } from '../ui.js';
+import { poster, statusSelect, cardClick } from '../ui.js';
 import { statusNames } from '../categories.js';
 
 // Kept outside the view so a check keeps going (and its progress shows) if you open a show and come back.
@@ -100,7 +100,7 @@ export function viewUpdates() {
     if (u.conflict) lines.push(u.conflict.text);
     if (u.seasons) lines.push(`TMDB has ${u.seasons} seasons; your list says ${s.seasons}.`);
     const href = `#/show/${encodeURIComponent(s.id)}`;
-    return el('div', { class: 'card update' },
+    return el('div', { class: 'card update clickable', onclick: cardClick(href) },
       el('div', { class: 'update-head' }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(s.tmdb && s.tmdb.poster)),
         el('div', {},
           el('div', { class: 'show-card-title' }, el('a', { href }, el('b', {}, s.title)), statusSelect(s)),

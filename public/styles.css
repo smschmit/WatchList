@@ -159,7 +159,9 @@ progress { width: 100%; height: 10px; }
 .edit-dialog { border: none; border-radius: 14px; padding: 0; width: min(640px, 94vw); background: var(--card); color: var(--text); }
 .edit-dialog::backdrop { background: rgb(0 0 0 / .4); }
 .status-select { border: 1px solid var(--line); font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; max-width: 100%; field-sizing: content; }
-.show-card { cursor: pointer; }
+.show-card, .clickable { cursor: pointer; }
+.person.clickable { border: 1px solid transparent; }
+.clickable:hover { border-color: var(--accent); }
 .status-menu { position: fixed; z-index: 50; display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; padding: .3rem; max-height: calc(100vh - 8px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
 .status-menu-item { border: 1px solid transparent; font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; text-align: left; }
 .status-menu-item:hover, .status-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
