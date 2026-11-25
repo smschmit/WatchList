@@ -88,13 +88,26 @@ export function getPerson(pid) {
 }
 
 export async function searchTmdb(query, type) {
-  const d = await tmdb(`/search/${type}`, { query, include_adult: 'false' });
-  return (d.results || []).filter((x) => type !== 'multi' || x.media_type === 'tv' || x.media_type === 'movie').map((x) => {
+  return (await searchTmdbPage(query, type)).hits;
+}
+// One page of search results, plus whether TMDB has more. Kept in memory only (not localStorage):
+// search-as-you-type makes many throwaway queries that would push details and people out of the saved cache.
+const searchCache = new Map();
+export async function searchTmdbPage(query, type, page = 1) {
+  const key = `${type}:${page}:${query.trim().toLowerCase()}`;
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.t < 864e5) return hit.v;
+  const d = await tmdb(`/search/${type}`, { query, include_adult: 'false', ...(page > 1 ? { page: String(page) } : {}) });
+  const hits = (d.results || []).filter((x) => type !== 'multi' || x.media_type === 'tv' || x.media_type === 'movie').map((x) => {
     const t = type === 'multi' ? x.media_type : type;
     const date = x.first_air_date || x.release_date || '';
     return { id: x.id, type: t, title: x.name || x.title, original: x.original_name || x.original_title, year: date ? Number(date.slice(0, 4)) : null,
       poster: x.poster_path, overview: x.overview || '', popularity: x.popularity || 0 };
   });
+  const v = { hits, more: (d.page || page) < (d.total_pages || 1) };
+  searchCache.set(key, { t: Date.now(), v });
+  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  return v;
 }
 
 // Turn TMDB details into the sheet's columns.
