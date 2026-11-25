@@ -9,6 +9,7 @@ import { poster, metaLine, personTile, favLine } from '../ui.js';
 import { backdropCard } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { recordView } from '../recent.js';
+import { pinTitle } from '../pagetitle.js';
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
 export function viewTitle(r) {
@@ -61,6 +62,7 @@ export function viewTitle(r) {
       matchNote || el('p', { class: 'muted small' }, 'Not on your list yet.'),
       el('div', { class: 'btn-row' }, addBtn,
         el('a', { class: 'btn ghost', href: `https://www.themoviedb.org/${t.type}/${t.id}`, target: '_blank', rel: 'noopener' }, 'View on TMDB'))));
+    if (location.hash === here) pinTitle(head.querySelector('h1'));
   }).catch((e) => head.replaceChildren(el('p', { class: 'muted' }, e.message)));
   const sec = el('section', { class: 'card cast' }, el('h2', {}, 'Cast'));
   const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));

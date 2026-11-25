@@ -18,6 +18,7 @@ import { viewTags } from './views/tags.js';
 import { viewRecent } from './views/recent.js';
 import { startCloud } from './cloud.js';
 import { startFastScroll } from './fastscroll.js';
+import { initPageTitle } from './pagetitle.js';
 
 setViews({ browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors,
   add: viewAdd, account: viewAccount, link: viewLink, updates: viewUpdates, statuses: viewStatuses, fill: viewFill, tags: viewTags,
@@ -27,6 +28,7 @@ setState(loadState());
 
 document.getElementById('app-version').textContent = `v${APP_VERSION}`;
 document.getElementById('back-btn').addEventListener('click', goBack);
+initPageTitle();
 document.getElementById('fwd-btn').addEventListener('click', goForward);
 document.getElementById('search-form').addEventListener('submit', (e) => {
   e.preventDefault();

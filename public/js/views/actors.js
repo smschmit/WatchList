@@ -6,6 +6,7 @@ import { go, listHash, recall, remember, restoreScroll } from '../router.js';
 import { getPerson } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
 import { recordView } from '../recent.js';
+import { pinTitle } from '../pagetitle.js';
 import { statusSelect, poster, heartBtn, titleHash, cardClick, favLine } from '../ui.js';
 
 // ---------- Actor page ----------
@@ -17,6 +18,7 @@ export function viewActor(r) {
   const head = el('div', { class: 'show-head' }, poster(fav && fav.profile, 'w342', 'poster big'),
     el('div', { class: 'show-head-body' }, el('h1', {}, fav ? fav.name : 'Loading…')));
   wrap.append(head);
+  if (fav) pinTitle(head.querySelector('h1'));
   const body = el('div', {}, el('p', { class: 'muted' }, 'Loading filmography…'));
   wrap.append(body);
   getPerson(pid).then((p) => {
@@ -36,6 +38,7 @@ export function viewActor(r) {
       countLine,
       a ? el('label', { class: 'field wide' }, 'Note', note) : null,
       p.bio ? el('details', {}, el('summary', {}, 'Biography'), el('p', { class: 'small' }, p.bio)) : null));
+    if (location.hash === here) pinTitle(head.querySelector('h1'));
 
     // Remembered per page so Back brings the list back filtered the same way, at the same length.
     let showAll = recall('showAll', false);
