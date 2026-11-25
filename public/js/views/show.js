@@ -10,6 +10,7 @@ import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
+import { pinTitle } from '../pagetitle.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker, favLine } from '../ui.js';
 import { listHash } from '../router.js';
 import { recordView } from '../recent.js';
@@ -35,10 +36,11 @@ export function viewShow(r) {
   notes.addEventListener('change', () => { if (!canEdit()) return; s.notes = notes.value; save({ quiet: true }); toast('Saved'); });
 
   const chips = (cat, list) => el('div', { class: 'chips' }, list.map((v) => chipLink(cat, v)));
+  const h1 = el('h1', {}, s.title);
   wrap.append(el('div', { class: 'show-head' },
     poster(s.tmdb && s.tmdb.poster, 'w342', 'poster big'),
     el('div', { class: 'show-head-body' },
-      el('h1', {}, s.title),
+      h1,
       el('p', { class: 'muted' }, metaLine(s)),
       favLine(s, { cls: '' }),
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
@@ -59,6 +61,7 @@ export function viewShow(r) {
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
   if (images) wrap.append(images);
   wrap.append(castSection(s));
+  pinTitle(h1);
   return wrap;
 }
 // What TMDB said at the last check, kept apart from your own show status label above it.

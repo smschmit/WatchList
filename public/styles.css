@@ -49,6 +49,11 @@ body.read-only .edit-only { display: none !important; }
   min-width: 2.2rem; min-height: 2.2rem; margin: -.3rem -.6rem -.3rem -.4rem; padding: 0 0 .2rem; cursor: pointer; }
 @media (hover: hover) { .back-btn:hover { background: var(--accent-soft); } }
 .brand { font-weight: 700; color: var(--text); white-space: nowrap; }
+/* Detail pages: once the heading scrolls away, its name takes the brand's place. Tap it to go back to the top. */
+.page-title { font: inherit; font-weight: 700; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer;
+  min-width: 0; max-width: 100%; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+body.titled .brand { display: none; }
+@media (min-width: 641px) { .page-title { max-width: 32vw; } }
 .version { font-weight: 400; font-size: .7rem; color: var(--muted); }
 .search { flex: 1 1 200px; }
 .search input { width: 100%; }

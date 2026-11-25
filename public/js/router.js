@@ -1,5 +1,6 @@
 // Hash routing and the top-level render.
 import { catByKey, RANGE, rebuildActorIndex, rebuildStatusColors } from './categories.js';
+import { pinTitle } from './pagetitle.js';
 
 // ---------- Routing ----------
 export function route() {
@@ -97,6 +98,7 @@ export function render() {
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
   const main = document.getElementById('main');
+  pinTitle(null); // detail pages pin their own name after this
   main.replaceChildren((views[r.name] || views.browse)(r));
   if (r.name === 'account' && window.cloud && window.cloud.renderAccount) window.cloud.renderAccount();
 }
