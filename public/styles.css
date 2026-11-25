@@ -296,6 +296,9 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .deck-head { display: flex; gap: .8rem; align-items: flex-start; margin-bottom: .6rem; }
 .deck-head .poster { width: 72px; height: auto; flex: none; }
 .deck-head h2 { margin: 0 0 .15rem; font-size: 1.2rem; }
+.deck-more { margin: .8rem 0 0; }
+.deck-more > summary { cursor: pointer; font-weight: 600; padding: .3rem 0; }
+.deck-more[open] > summary { margin-bottom: .45rem; }
 .deck-fields { display: grid; gap: .45rem; margin-bottom: .8rem; }
 .deck-field { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .3rem .4rem; border-radius: 8px; }
 .deck-field.blank { background: var(--yellow-bg); }
