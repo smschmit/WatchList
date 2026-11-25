@@ -12,10 +12,12 @@ import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker, favLine } from '../ui.js';
 import { listHash } from '../router.js';
+import { recordView } from '../recent.js';
 
 export function viewShow(r) {
   const s = showById(r.id);
   if (!s) return el('p', { class: 'muted' }, 'Show not found. ', el('a', { href: '#/' }, 'Back to browse'));
+  recordView({ kind: 'show', id: s.id });
   const wrap = el('div', { class: 'show-page' });
   const images = imagesSection(s);
   const field = (key, label) => {
