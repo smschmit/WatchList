@@ -5,12 +5,14 @@ import { favNamesFor } from '../categories.js';
 import { go, listHash, recall, remember, restoreScroll } from '../router.js';
 import { getPerson } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
+import { recordView } from '../recent.js';
 import { statusSelect, poster, heartBtn, titleHash, cardClick, favLine } from '../ui.js';
 
 // ---------- Actor page ----------
 export function viewActor(r) {
   const pid = Number(r.id);
   const fav = actorByTmdb(pid);
+  const here = location.hash;
   const wrap = el('div', { class: 'actor-page' });
   const head = el('div', { class: 'show-head' }, poster(fav && fav.profile, 'w342', 'poster big'),
     el('div', { class: 'show-head-body' }, el('h1', {}, fav ? fav.name : 'Loading…')));
@@ -19,6 +21,7 @@ export function viewActor(r) {
   wrap.append(body);
   getPerson(pid).then((p) => {
     const a = actorByTmdb(pid);
+    if (location.hash === here) recordView({ kind: 'actor', id: pid, name: p.name, profile: p.profile || null });
     if (a && (!a.creditsAt || a.creditsAt < today())) {
       a.credits = p.credits.filter((c) => !c.appearance).map(({ id, type, title, year }) => ({ id, type, title, year }));
       a.creditsAt = today(); a.profile = p.profile || a.profile; save({ quiet: true });

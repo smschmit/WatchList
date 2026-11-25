@@ -8,6 +8,7 @@ import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile, favLine } from '../ui.js';
 import { backdropCard } from '../images.js';
 import { whereToWatch } from '../watch.js';
+import { recordView } from '../recent.js';
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
 export function viewTitle(r) {
@@ -17,12 +18,14 @@ export function viewTitle(r) {
   const mine = listShowFor(t);
   if (mine) { const here = location.hash; setTimeout(() => { if (location.hash === here) go(`#/show/${encodeURIComponent(mine.id)}`); }); return el('div'); }
   const src = r.params.get('src');
+  const here = location.hash;
   const wrap = el('div', { class: 'show-page' });
   const head = el('div', { class: 'show-head' }, poster(null, 'w342', 'poster big'),
     el('div', { class: 'show-head-body' }, el('h1', {}, 'Loading…')));
   wrap.append(head, backdropCard(t));
   getDetails(t).then(async (d) => {
     const info = normShow(await detailsToShow(t, d));
+    if (location.hash === here) recordView({ kind: 'title', type: t.type, id: t.id, name: info.title, year: info.year, poster: d.poster_path || null });
     const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: async () => {
       addBtn.disabled = true;
       const s = await addFromTmdb(t, src ? { sources: [src] } : {});

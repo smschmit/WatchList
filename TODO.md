@@ -99,6 +99,48 @@ Show where each title is streaming, renting or for sale, and answer the main que
 - [x] **Auto-fill Network from it?** Decided no: the original network and today's streamers are separate facts (The Office: NBC, now Peacock). Network stays your field.
 - [ ] Later: use My services to filter recommendations (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
 
+## Seasons, episodes and where I am
+
+A season → episode guide on TV show pages, and where you are in each show. (Songs are benched: see the end of this section.)
+
+### Data source
+
+- TMDB, already in use. `/tv/{id}` gives the season list and `/tv/{id}/season/{n}` gives every episode (number, title, overview, air date, runtime, still). The proxy already allows both, and `getDetails` / `getSeasonStills` already fetch them. Nothing new to set up.
+
+### Proposed design
+
+- **Episodes come from TMDB live, not stored in the list.** Cached on the device, slimmed to what the page shows (about 4 KB a season). 7 days, or 1 day for the current season of a show that's still airing.
+- **Where you are:** a new top-level map `state.progress = { [showId]: { season, episode, at } }`, the last episode you've watched. Kept off the show record on purpose: sync merges a whole show at a time, so if progress lived on the show, marking an episode on the phone and editing notes on the laptop before they sync would lose one of the two. A separate map merges per show on its own (`mergeKeyed` in `cloud.js`), so progress and show edits never collide. About 50 bytes a show.
+- **Spoilers:** episode titles, overviews and stills are spoilers. Show them for episodes up to your progress, or for everything when **Show spoilers** is on. Later episodes show only "S2 · E5" and the air date. This also covers the "unlock stills up to the current episode" item under Show images.
+
+### Screens
+
+- **Show page → Episodes card** (TV shows linked to TMDB), replacing the "Episode stills" part of Images: one collapsed row per season ("Season 2 · 10 episodes · 3 watched"), loaded when opened, the season you're in open by default. Each episode row: S·E, title (if unlocked), air date, runtime, still (if unlocked), and a ✓ to mark watched up to here. Unaired episodes say "Airs Mar 4".
+- **Show header:** "Up next: S2 · E5" with **Watched it** (moves progress on, rolls to the next season). Not started: "Start with S1 · E1".
+- **Read-only viewers** see episodes and progress but can't change it (same `canEdit()` checks as today).
+
+### Interactions with what's there
+
+- **Status:** marking the last aired episode watched offers to set My status to Finished (or Paused Between Seasons if the show is still running). Picking Watching on a show with no progress offers "Start at S1 · E1?". Setting Finished doesn't touch progress.
+- **Updates page:** "new season out" becomes "N new episodes since S3 · E8", and Waiting shows say exactly where to resume.
+- **Backups / CSV / sheet export:** progress goes in the JSON backup automatically. CSV and the Google Sheet get a "Progress" column ("S2 · E5").
+
+### Build order
+
+1. [ ] Episodes card with seasons and episode rows from TMDB, spoiler rules, replaces the stills section (`images.js` → new `episodes.js`).
+2. [ ] `state.progress`, the ✓ per episode, "Up next" in the show header, the status prompts.
+3. [ ] Updates page uses progress; Progress column in CSV and sheet export.
+4. [ ] README, `ASSETS` in `sw.js`, bump `CACHE` and `APP_VERSION`.
+
+### Open decisions
+
+- [ ] **Progress model:** last-watched episode (recommended) or a full per-episode checklist (handles skipping around and rewatches, more taps, more data).
+- [ ] **Importing history:** Netflix has no API, but its viewing activity downloads as a CSV (title like "Show: Season 1: Episode", plus date). An import could match those to TMDB episodes and set progress. One-off or occasional, not real time. Trakt.tv (has an API; a browser extension scrobbles Netflix) is the only route to near-automatic tracking, at the cost of another account.
+
+### Benched: songs per episode
+
+Songs you noticed in an episode, kept in a top-level `state.songs` list (merges item by item already). No free source maps songs to episodes (TMDB has none; Tunefind and WhatSong have no public API), so they'd be entered by hand with a song search (iTunes Search API, free, untested from here). Shazam has no API either; the workable route is Shazam's "My Shazam Tracks" playlist synced to Spotify or Apple Music, read through their APIs, with each song's added time matched to what you were watching. Revisit later.
+
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
 
 - [ ] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand.
