@@ -8,6 +8,12 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 - [ ] **Link the remaining TV shows to TMDB** (☰ → TMDB → Link titles). Unlinked shows can't be checked or recommended from.
 - [ ] **Work through the first "Show status to review" list.** Expect a long list: 214 shows had no Show status.
 
+- [ ] **Plan: make Updates checks faster.** Finished shows are now always checked (about 310 more shows per run), so a full check is slow. Ideas to weigh, not decided:
+  - Check ended/canceled Finished shows less often (e.g. once a month) instead of every run.
+  - Use TMDB's `/tv/changes` feed to check only shows that changed since the last run.
+  - Run more checks at once than the current 4.
+  - Run checks in the background on a schedule (Netlify scheduled function) so the page shows results instead of waiting.
+
 ## Show images (spoiler-safe)
 
 Pull more images from TMDB, which the app already uses, without spoiling unwatched episodes.
