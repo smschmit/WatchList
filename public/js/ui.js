@@ -99,6 +99,18 @@ export function showCard(s) {
       favs.length ? el('div', { class: 'small fav-line' }, '♥ ', favs.join(', ')) : null));
 }
 
+// Compact version of showCard for scanning long lists: title and status, then year, format, genres and tags on one cut-off line.
+export function showRow(s) {
+  const href = `#/show/${encodeURIComponent(s.id)}`;
+  const meta = [years(s), s.format, ...s.genres, ...s.tags].filter(Boolean).join(' · ');
+  return el('div', { class: 'show-row', onclick: (e) => { if (!e.target.closest('select, a')) go(href); } },
+    el('a', { class: 'show-row-title', href }, s.title), statusSelect(s),
+    el('div', { class: 'show-row-meta muted small' }, meta));
+}
+export const DENSITY_KEY = 'watchlist:density';
+export function getDensity() { try { return localStorage.getItem(DENSITY_KEY) === 'rows' ? 'rows' : 'cards'; } catch { return 'cards'; } }
+export function setDensity(v) { try { localStorage.setItem(DENSITY_KEY, v); } catch { /* per-device nicety only */ } }
+
 // ---------- Show page ----------
 export const SELECTS = {
   status: () => uniq(['', ...statusNames()]),
