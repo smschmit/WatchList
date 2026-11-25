@@ -117,8 +117,106 @@ const ERA_SPANS = {
   'middle ages': [500, 1500], medieval: [500, 1500], 'medieval england': [500, 1500], 'tudor england': [1485, 1603], tudors: [1485, 1603],
   'elizabethan era': [1558, 1603], renaissance: [1400, 1600], 'ancient rome': [-750, 476], 'ancient greece': [-800, -146],
   'ancient egypt': [-3100, -30], 'viking age': [793, 1066], 'gilded age': [1870, 1900], 'belle époque': [1871, 1914],
+  // Named periods TMDB uses. Long ones (Cold War, The Troubles) give no era, but still say "set in the past", so
+  // "Present day" isn't guessed for them (see pastKeyword).
+  victorian: [1837, 1899], regency: [1811, 1820], edwardian: [1901, 1914], elizabethan: [1558, 1603], tudor: [1485, 1603],
+  'the troubles': [1966, 1998], 'cold war': [1947, 1991], 'korean war': [1950, 1953], 'gulf war': [1990, 1991],
+  'falklands war': [1982, 1982], 'spanish civil war': [1936, 1939], 'great war': [1914, 1918], 'the blitz': [1940, 1941],
+  'world war 1': [1914, 1918], 'world war 2': [1940, 1945], wwi: [1914, 1918], ww1: [1914, 1918], wwii: [1940, 1945], ww2: [1940, 1945],
+  'interwar period': [1918, 1939], 'mccarthy era': [1947, 1957], mccarthyism: [1947, 1957], 'red scare': [1947, 1957],
+  'depression era': [1929, 1939], 'reconstruction era': [1865, 1877], 'civil rights movement': [1954, 1968], 'space race': [1957, 1975],
+  'russian revolution': [1917, 1917], 'napoleonic wars': [1803, 1815], 'peninsular war': [1807, 1814], 'trojan war': [-1200, -1180],
+  'stone age': [-10000, -3000], prehistoric: [-10000, -3000], 'heian period': [794, 1185], 'kamakura period': [1185, 1333],
+  'sengoku period': [1467, 1615], 'edo period': [1603, 1868], 'meiji period': [1868, 1912], 'taisho period': [1912, 1926],
+  'tang dynasty': [618, 907], 'song dynasty': [960, 1279], 'yuan dynasty': [1271, 1368], 'ming dynasty': [1368, 1644],
+  'qing dynasty': [1644, 1912], 'han dynasty': [-206, 220], 'goryeo dynasty': [918, 1392], 'joseon dynasty': [1392, 1897],
 };
+// Only count as a period in front of a place: "ancient japan", "victorian london", "medieval spain" (not "ancient curse").
+const PREFIX_SPANS = { ancient: [-3000, 476] };
 const FUTURE_WORDS = /^(future|distant future|near future|dystopian future|post-apocalyptic future|futuristic|22nd century|23rd century|24th century|25th century)$/;
+const FUTURE = 'future';
+const ORDINAL_WORDS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth',
+  'thirteenth', 'fourteenth', 'fifteenth', 'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth', 'twentieth', 'twenty-first'];
+const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen',
+  'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty', 'twenty-one'];
+const romanValue = (r) => {
+  const v = { i: 1, v: 5, x: 10, l: 50 };
+  let n = 0;
+  for (let i = 0; i < r.length; i++) n += v[r[i]] < (v[r[i + 1]] || 0) ? -v[r[i]] : v[r[i]];
+  return n;
+};
+// "19th", "nineteenth", "nineteen", "xix", "xviith" -> 19 / 17. Anything else -> null.
+function centuryNumber(tok) {
+  let m;
+  if ((m = /^(\d{1,2})(st|nd|rd|th)?$/.exec(tok))) return Number(m[1]);
+  if (ORDINAL_WORDS.includes(tok)) return ORDINAL_WORDS.indexOf(tok) + 1;
+  if (NUMBER_WORDS.includes(tok)) return NUMBER_WORDS.indexOf(tok) + 1;
+  if ((m = /^([ivxl]+)(st|nd|rd|th)?$/.exec(tok))) return romanValue(m[1]);
+  return null;
+}
+// "1966", "98" -> 1998; "1914", "18" -> 1918; "1995", "05" -> 2005.
+function yearRange(a, b) {
+  const start = Number(a);
+  let end = b.length < a.length ? Number(a.slice(0, a.length - b.length) + b) : Number(b);
+  if (end < start && b.length < a.length) end += 10 ** b.length;
+  return end >= start ? [start, end] : null;
+}
+// The years a TMDB keyword (or a Wikidata period label) points to: [start, end], FUTURE, or null when it names no period.
+function spanOf(raw) {
+  const k = (raw || '').trim().toLowerCase().replace(/[‐‑–—]/g, '-').replace(/(\d)'s\b/g, '$1s').replace(/-century\b/g, ' century').replace(/\s+/g, ' ');
+  if (FUTURE_WORDS.test(k)) return FUTURE;
+  let m;
+  // A year range in brackets, with or without other words: "middle ages (476-1453)", "the troubles (north ireland, 1966-98)".
+  if ((m = /\((?:[^()]*?[^\d()])?(\d{3,4}) ?- ?(\d{2,4})\)/.exec(k))) return yearRange(m[1], m[2]);
+  if ((m = /^(\d{4}) ?- ?(\d{2,4})$/.exec(k))) return yearRange(m[1], m[2]); // "1939-1945", "1914-18"
+  if ((m = /^(1[5-9]\d\d|20[0-2]\d)$/.exec(k))) return [Number(m[1]), Number(m[1])]; // "1975"
+  // A decade, alone or before a place: "1980s", "1950s japan" (not "1950s music" or "1980s cartoon").
+  if ((m = /^(1\d|20)(\d)0s(?: (.+))?$/.exec(k)) && (!m[3] || knownPlace(m[3]))) {
+    const d = Number(m[1] + m[2] + '0');
+    return [d, d + 9];
+  }
+  // "early 1900s", "late 1800s", "mid 1970s".
+  if ((m = /^(early|mid|late)[ -](1\d|20)00s$/.exec(k))) {
+    const c = Number(m[2]) * 100;
+    return { early: [c, c + 19], mid: [c + 40, c + 69], late: [c + 70, c + 99] }[m[1]];
+  }
+  if ((m = /^(early|mid|late)[ -](1\d|20)(\d)0s$/.exec(k))) {
+    const d = Number(m[2] + m[3] + '0');
+    return [d, d + 9];
+  }
+  // Centuries: "19th century", "late 19th century", "xix century", "nineteenth century", "17th century india", "12th century bc".
+  if ((m = /^(?:(early|mid|late)[ -])?(\S+) century(?: (.+))?$/.exec(k))) {
+    const n = centuryNumber(m[2]);
+    const bc = m[3] && /^(bc|bce|b\.c\.)$/.test(m[3]);
+    if (n && n <= 30 && (!m[3] || bc || knownPlace(m[3]))) {
+      if (bc) return [-n * 100, -(n - 1) * 100];
+      if (n >= 22) return FUTURE;
+      const s = (n - 1) * 100;
+      return { early: [s, s + 29], mid: [s + 40, s + 69], late: [s + 70, s + 99] }[m[1]] || [s, s + 99];
+    }
+  }
+  // Named periods: "victorian era", "cold war (1947–1991)" (caught above), "edo period", "world war ii".
+  const key = k.replace(/\s*\(.*\)$/, '');
+  if (ERA_SPANS[key]) return ERA_SPANS[key];
+  const bare = key.replace(/ (era|period|age)$/, '');
+  if (bare !== key && ERA_SPANS[bare]) return ERA_SPANS[bare];
+  // A period in front of a place: "victorian london", "medieval spain", "ancient japan".
+  const sp = key.indexOf(' ');
+  if (sp > 0) {
+    for (let i = sp; i > 0; i = key.indexOf(' ', i + 1)) {
+      const left = key.slice(0, i);
+      const span = ERA_SPANS[left] || PREFIX_SPANS[left];
+      if (span && knownPlace(key.slice(i + 1))) return span;
+    }
+  }
+  return null;
+}
+// A keyword that names a period which ended before the show came out, even one too long to give an era
+// ("the troubles (north ireland, 1966-98)", "cold war"). Used to keep "Present day" from being guessed.
+export function pastKeyword(kw, released) {
+  const span = spanOf(kw);
+  return Array.isArray(span) && released != null && span[1] < released - 3;
+}
 // Eras for a span of years. Too broad a span (more than three decades, after 1900) says nothing useful, so returns [].
 // Decades at or near the release year count as "Present day".
 export function erasForSpan(start, end, released) {
@@ -134,22 +232,11 @@ export function erasForSpan(start, end, released) {
   for (let d = first; d <= last; d += 10) out.push(released && d + 9 >= released - 3 ? 'Present day' : `${d}s`);
   return [...new Set(out)].filter((e) => ERA_ORDER.includes(e));
 }
-// Eras from one TMDB keyword ("1980s", "world war ii", "middle ages (476-1453)", "19th century", "future").
+// Eras from one TMDB keyword ("1980s", "world war ii", "middle ages (476-1453)", "19th century", "1950s japan", "future").
 export function erasFromKeyword(kw, released) {
-  const k = kw.trim().toLowerCase();
-  if (FUTURE_WORDS.test(k)) return ['Future'];
-  let m;
-  if ((m = /^(1[5-9]|20)(\d)0s$/.exec(k))) return erasForSpan(Number(m[1] + m[2] + '0'), Number(m[1] + m[2] + '9'), released);
-  if ((m = /^(1[5-9]\d\d|20[0-2]\d)$/.exec(k))) return erasForSpan(Number(m[1]), Number(m[1]), released);
-  if ((m = /\((\d{3,4})\s*[-–]\s*(\d{3,4})\)/.exec(k))) return erasForSpan(Number(m[1]), Number(m[2]), released);
-  if ((m = /^(\d{1,2})(st|nd|rd|th) century$/.exec(k))) {
-    const c = Number(m[1]);
-    if (c >= 22) return ['Future'];
-    return c <= 19 ? ['Before 1900'] : [];
-  }
-  const key = k.replace(/\s*\(.*\)$/, '');
-  if (ERA_SPANS[key]) return erasForSpan(...ERA_SPANS[key], released);
-  return [];
+  const span = spanOf(kw);
+  if (span === FUTURE) return ['Future'];
+  return span ? erasForSpan(span[0], span[1], released) : [];
 }
 // Eras from a Wikidata "set in period" item: its label ("1960s"), or its start/end years.
 export function erasFromPeriod(p, released) {
@@ -206,6 +293,13 @@ export function releasedYear(d) {
   const date = d.first_air_date || d.release_date || '';
   return date ? Number(date.slice(0, 4)) : null;
 }
+// Eras from all of a show's keywords. A broad keyword gives way to a narrower one inside it: "space race" (1950s–70s)
+// next to "1960s" gives just 1960s.
+export function keywordEras(kws, released) {
+  const each = kws.map((k) => erasFromKeyword(k, released)).filter((e) => e.length);
+  const narrowest = each.filter((e) => !each.some((o) => o.length < e.length && o.every((x) => e.includes(x))));
+  return sortEras(narrowest.flat());
+}
 // Everything TMDB alone says. Setting/era here are the keyword fallbacks; Wikidata, when it has an answer, wins (see combine()).
 export function fromTmdb(d) {
   const kws = keywordsOf(d);
@@ -220,12 +314,12 @@ export function fromTmdb(d) {
     fiction: fictionFrom(genres, kws),
     tone: tone.tone, toneFrom: tone.from,
     keywordPlaces: places,
-    keywordEras: sortEras(kws.flatMap((k) => erasFromKeyword(k, released))),
-    period: kws.some((k) => PERIOD.test(k.toLowerCase())),
-    released, genres,
+    keywordEras: keywordEras(kws, released),
+    period: kws.some((k) => PERIOD.test(k.toLowerCase()) || pastKeyword(k, released)),
+    released, genres, keywords: kws,
   };
 }
-const PERIOD = /^(period drama|period piece|costume drama|historical|historical fiction|historical drama|history|period film|historical event)$/;
+const PERIOD = /^(costume drama|historical|history|(period|historical) (drama|piece|film|fiction|event|romance|comedy|thriller|horror|mystery|epic|war))$/;
 // Your own tags that say a show is set in the past.
 export const PERIOD_TAG = /^(period|period drama|historical|victorian|regency|edwardian|wwi|wwii|ww2|world war (i|ii|2)|cold war|medieval|\d{4}s)$/i;
 // Present day, as a last guess: only when nothing says the show is set in the past, in the future or somewhere invented.
@@ -261,6 +355,7 @@ export function combine(t, wd, today, opts = {}) {
   return {
     sourced: {
       country: t.country, languages: t.languages, fiction: t.fiction, tone: t.tone, setting, era,
+      keywords: t.keywords || [], // TMDB's keywords as they were, kept out of your tags
       from: { setting: settingFrom, era: eraFrom, tone: t.toneFrom },
       at: today,
     },
