@@ -113,6 +113,12 @@ export function labelConflict(s) {
 // Statuses that mean "I'm waiting for more of this show".
 export const WAITING = ['Waiting for Series End', 'Paused Between Seasons', 'Waiting Next Release'];
 export const READY = "Waiting on Release and Now It's Ready";
+export const FINISHED = 'Finished';
+// What a finished show becomes when you choose to wait for its next season. Uses whichever waiting
+// status your list has (names are editable), preferring Paused Between Seasons.
+export function waitingStatus(names) {
+  return ['Paused Between Seasons', 'Waiting Next Release'].find((n) => names.includes(n)) || 'Paused Between Seasons';
+}
 
 // TMDB has more aired seasons than your list records.
 export function newSeasons(s) {
@@ -130,6 +136,16 @@ export function readyToWatch(s) {
   return null;
 }
 
+// You finished this show, but TMDB says there's more: renewed, a season scheduled or airing, or more aired seasons than your list.
+export function moreComing(s) {
+  if (s.status !== FINISHED || !s.facts) return null;
+  const fc = factClass(s.facts);
+  const n = newSeasons(s);
+  if (n) return `You finished it, but season ${n} is out.`;
+  if (fc !== 'renewed' && fc !== 'airing') return null;
+  return `You finished it, but TMDB says ${s.facts.status.toLowerCase()}.`;
+}
+
 // Everything worth telling you about one show, or null. Dismissing remembers the facts you saw
 // (factsAck), so the show stays quiet until TMDB says something new.
 export const factsSignature = (f) => (f ? [f.status, f.seasonsAired, f.nextAir].join('|') : '');
@@ -140,6 +156,7 @@ export function updateFor(s) {
   const conflict = labelConflict(s);
   const ready = readyToWatch(s);
   const seasons = newSeasons(s);
-  if (!changes.length && !conflict && !ready && !seasons) return null;
-  return { changes, conflict, ready, seasons };
+  const more = moreComing(s);
+  if (!changes.length && !conflict && !ready && !seasons && !more) return null;
+  return { changes, conflict, ready, seasons, more };
 }
