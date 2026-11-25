@@ -10,7 +10,7 @@ import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
-import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
+import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker, favLine } from '../ui.js';
 import { listHash } from '../router.js';
 
 export function viewShow(r) {
@@ -38,6 +38,7 @@ export function viewShow(r) {
     el('div', { class: 'show-head-body' },
       el('h1', {}, s.title),
       el('p', { class: 'muted' }, metaLine(s)),
+      favLine(s, { cls: '' }),
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       factsLine(s),
