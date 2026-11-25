@@ -1,7 +1,7 @@
 // Account, backup, import and export.
 import { el, toast, download, today } from '../util.js';
 import { state, setState, normalizeState, save, canEdit } from '../state.js';
-import { totalHours } from '../shows.js';
+import { totalHours, fieldOf } from '../shows.js';
 import { favNamesFor, SORTS } from '../categories.js';
 import { render } from '../router.js';
 import { APP_VERSION } from '../version.js';
@@ -13,7 +13,9 @@ export const EXPORT_COLS = [
   ['Format', (s) => s.format], ['Release Year', (s) => s.year], ['End Year', (s) => s.endYear], ['Seasons', (s) => s.seasons],
   ['Episodes', (s) => s.episodes], ['Episode Length (min)', (s) => s.epLength], ['Total Hours', (s) => { const h = totalHours(s); return h == null ? '' : Math.round(h * 10) / 10; }],
   ['Show Status', (s) => s.showStatus], ['Genre', (s) => s.genres.join(', ')], ['Structure', (s) => s.structure],
-  ['Country', (s) => s.country], ['Language', (s) => s.languages.join(', ')], ['Tags', (s) => s.tags.join(', ')],
+  ['Country', (s) => s.country], ['Language', (s) => s.languages.join(', ')],
+  ['Fiction', (s) => fieldOf(s, 'fiction')], ['Tone', (s) => fieldOf(s, 'tone')], ['Era', (s) => fieldOf(s, 'era').join(', ')],
+  ['Setting', (s) => fieldOf(s, 'setting').join(', ')], ['Tags', (s) => s.tags.join(', ')],
   ['Original Network/Platform', (s) => s.network], ['Favorite Actors', (s) => favNamesFor(s).join(', ')],
   ['Confidence', (s) => s.confidence], ['Research Notes', (s) => s.researchNotes],
   ['TMDB', (s) => (s.tmdb && s.tmdb.id ? `https://www.themoviedb.org/${s.tmdb.type}/${s.tmdb.id}` : '')],
@@ -69,7 +71,13 @@ export function viewAccount() {
       el('a', { class: 'btn', href: '#/statuses' }, 'Edit status options')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'TMDB'),
       el('p', { class: 'small' }, `${state.shows.length - unlinked} of ${state.shows.length} titles linked to TMDB (needed for cast and favorite actors).`),
-      el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links')),
+      el('div', { class: 'btn-row' },
+        el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links'),
+        el('a', { class: 'btn', href: '#/fill' }, 'Fill from TMDB')),
+      el('p', { class: 'muted small' }, 'Fill from TMDB adds Fiction, Tone, Setting and Era (from TMDB and Wikidata), and Country and Language where blank.')),
+    el('section', { class: 'card edit-only' }, el('h2', {}, 'Tags'),
+      el('p', { class: 'small' }, `${new Set(state.shows.flatMap((s) => s.tags)).size} distinct tags. Merge duplicates, move tags into fields, and review shows one card at a time.`),
+      el('div', { class: 'btn-row' }, el('a', { class: 'btn', href: '#/tags' }, 'Tag cleanup'), el('a', { class: 'btn', href: '#/tags/deck' }, 'Tag Deck'))),
     el('section', { class: 'card' }, el('h2', {}, 'Export and backup'),
       el('div', { class: 'btn-row' },
         el('span', { class: 'edit-only' }, sheetBtn),

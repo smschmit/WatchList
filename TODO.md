@@ -1,12 +1,19 @@
 # Watch List: to do
 
-Remaining plan for future features. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, and the Updates page with a manual check button.
+Remaining plan for future features. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, the Updates page with a manual check button, the Fiction / Tone / Era / Setting fields with Fill from TMDB, Tag cleanup, and the Tag Deck.
 
 ## Next up
 
 - [ ] **Try the Updates page on real data.** Merge the branch, let Netlify deploy, run one check, and look over the results. So far it has only been tested against made-up TMDB answers.
 - [ ] **Link the remaining TV shows to TMDB** (☰ → TMDB → Link titles). Unlinked shows can't be checked or recommended from.
 - [ ] **Work through the first "Show status to review" list.** Expect a long list: 214 shows had no Show status.
+
+## Fields and tags (next steps)
+
+- [ ] **Deploy, then run Fill from TMDB:** **Try 10 first**, look at a few show pages, then fill the rest. Needs the Netlify deploy (the TMDB proxy now allows keyword lookups). Tested on 99 of your shows: Setting came from Wikidata for 42%, TMDB keywords 16%, nothing 43%; Era from Wikidata 8%, keywords 19%, a Present day guess 60%, nothing 13%; Tone from keywords 13%, genres 12%, nothing 74%.
+- [ ] **Tag cleanup in this order:** merge spellings → remove genre repeats → move Fiction/Tone tags → answer the ambiguous ones → remove setting, era and origin tags (after the fill) → one-offs.
+- [ ] **Tag Deck:** work through the shows with no or one-off tags first. Check Era where it says "guess", and fill Tone (TMDB rarely has it).
+- [ ] Later: **Tag Mode**. Pick one tag and swipe through shows that might fit it; right adds the tag, left skips.
 
 ## Show images (spoiler-safe)
 
@@ -48,7 +55,7 @@ Other image sources if TMDB falls short: TVmaze (free, no key, character photos,
 
 - [ ] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand.
 - [ ] Collections show on the home page above the browse columns.
-- [ ] **Clean up tags at the same time.** There are 912 distinct tags, with synonyms and overlap with genres (for example, "Dark Comedy" is both). Rule-based collections will miss shows until this is done.
+- [x] **Clean up tags at the same time.** Tag cleanup and the Tag Deck are built (see above); collections can use Fiction, Tone, Era and Setting as well as tags.
 - [ ] Later: use the description to sort existing shows into a collection, and to drive "more like this" recommendations.
 
 ## Recommendations

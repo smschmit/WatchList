@@ -7,7 +7,8 @@ import { emptyState, chipLink } from '../ui.js';
 export function viewBrowse() {
   if (!state.shows.length) return emptyState();
   const wrap = el('div', { class: 'browse' });
-  wrap.append(el('p', { class: 'muted' }, `${state.shows.length} titles. Tap any value to see those shows; add more filters from there.`));
+  wrap.append(el('p', { class: 'muted' }, `${state.shows.length} titles. Tap any value to see those shows; add more filters from there.`,
+    el('span', { class: 'edit-only' }, ' ', el('a', { href: '#/tags/deck' }, `Tag Deck (${state.shows.filter((s) => s.tagsReviewedAt).length} of ${state.shows.length} reviewed)`))));
   for (const cat of CATS) {
     const entries = counts(cat, state.shows);
     if (!entries.length) {
@@ -17,7 +18,8 @@ export function viewBrowse() {
     }
     const shown = cat.top ? entries.slice(0, cat.top) : entries;
     const sec = el('section', { class: 'cat card' },
-      el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null),
+      el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null,
+        cat.key === 'tag' ? el('a', { class: 'h2-link edit-only', href: '#/tags' }, 'Clean up') : null),
       el('div', { class: 'chips' }, shown.map(([v, n]) => chipLink(cat.key, v, n))));
     if (cat.top && entries.length > cat.top) {
       const more = el('button', { class: 'btn small', onclick: () => {
