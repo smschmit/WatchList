@@ -1,5 +1,6 @@
 // Filtered, sorted list of shows.
-import { el } from '../util.js';
+import { el, norm } from '../util.js';
+import { totalHours, fmtHours } from '../shows.js';
 import { state, readOnly } from '../state.js';
 import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
 import { go, listHash, filtersFrom, render } from '../router.js';
@@ -101,11 +102,26 @@ export function viewList(r) {
   wrap.append(picker);
 
   // Everything at once (no "Show more"), so Back can return to any spot in the list.
-  const list = el('div', { class: density === 'rows' ? 'show-rows' : 'show-list' }, results.map(density === 'rows' ? showRow : showCard));
+  const item = density === 'rows' ? showRow : showCard;
+  const list = el('div', { class: density === 'rows' ? 'show-rows' : 'show-list' }, results.map((s) => {
+    const node = item(s);
+    node.dataset.jump = jumpLabel(s, sort);
+    return node;
+  }));
   wrap.append(list);
   if (!results.length) wrap.append(el('p', { class: 'muted' }, 'No shows match.'));
   // A search that finds little on the list is often a show you want to add.
   if (q && results.length < 3 && !readOnly) wrap.append(el('p', { class: 'muted small' }, results.length ? 'Not what you wanted? ' : '',
     el('a', { href: `#/add?${new URLSearchParams({ q })}` }, `Search TMDB for “${q}”`)));
   return wrap;
+}
+
+// What the scroll handle's bubble shows for a show, matching the sort: a letter, a year, an amount of time.
+function jumpLabel(s, sort) {
+  if (sort === 'title') { const c = norm(s.title).charAt(0).toUpperCase(); return /[A-Z]/.test(c) ? c : '#'; }
+  if (sort === 'newest' || sort === 'oldest') return s.year ? String(s.year) : 'No year';
+  if (sort === 'shortest' || sort === 'longest') { const h = totalHours(s); return h ? fmtHours(h) : 'Unknown'; }
+  if (sort === 'eplen') return s.epLength ? `${s.epLength} min` : 'Unknown';
+  if (sort === 'seasons') return s.seasons ? `${s.seasons} season${s.seasons === 1 ? '' : 's'}` : 'Unknown';
+  return '';
 }
