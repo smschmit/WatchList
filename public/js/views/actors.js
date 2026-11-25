@@ -46,11 +46,11 @@ export function viewActor(r) {
     let showTv = recall('showTv', true);
     let showMovies = recall('showMovies', true);
     let onlyMajor = recall('onlyMajor', false);
-    let sortBy = recall('sortBy', 'known');
+    let sortBy = recall('sortBy', 'newest');
     const listBox = el('div', { class: 'credit-list' });
     const sortSelect = el('select', { 'aria-label': 'Sort filmography', onchange: (e) => { sortBy = e.target.value; remember('sortBy', sortBy); fill(); } },
-      el('option', { value: 'known', selected: sortBy === 'known' }, 'Known for'),
-      el('option', { value: 'newest', selected: sortBy === 'newest' }, 'Newest'));
+      el('option', { value: 'newest', selected: sortBy === 'newest' }, 'Newest'),
+      el('option', { value: 'known', selected: sortBy === 'known' }, 'Known for'));
     const controls = el('div', { class: 'row filter-bar' },
       sortSelect,
       el('label', { class: 'inline', title: 'TV shows with 2 or more episodes, and movies where they were billed in the top 8' },
