@@ -100,7 +100,13 @@ export function cardClick(href) {
 // `skip`: a name to leave out (on an actor's own page every credit has them). Nothing when there are none.
 export function favLine(t, { skip = null, cls = 'small' } = {}) {
   const names = (!t ? [] : t.tmdb ? favNamesFor(t) : t.type && t.id ? favNamesFor({ tmdb: t }) : []).filter((n) => n !== skip);
-  return names.length ? el('div', { class: `${cls} fav-line` }, '♥ ', names.join(', ')) : null;
+  if (!names.length) return null;
+  // Each name links to that actor's page (they may not be in the cast list if their part was small).
+  const parts = names.flatMap((n, i) => {
+    const a = state.actors.find((x) => x.name === n);
+    return [i ? ', ' : '', a && a.tmdbId ? el('a', { href: `#/actor/${a.tmdbId}` }, n) : n];
+  });
+  return el('div', { class: `${cls} fav-line` }, '♥ ', ...parts);
 }
 export function showCard(s) {
   const href = `#/show/${encodeURIComponent(s.id)}`;
