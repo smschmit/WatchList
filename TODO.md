@@ -30,7 +30,6 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 ### Maybe later
 
 - A "Spoilers on" filter in the browse view.
-
 - Extra actor headshots from `/person/{id}/images`.
 - Track a current episode per show and unlock stills up to that point.
 
