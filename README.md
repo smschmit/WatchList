@@ -6,10 +6,12 @@ A small installable web app for browsing a TV and movie watch list by any column
 
 - **Browse by any column**: the home page lists every column (My status, Want to watch?, Use to recommend, Favorite actors, Format, Genre, Tags, Network, Country, Language, Decade, Show status, Structure, Episode length, Total time to watch, Seasons, Source, Research confidence) with each value and how many shows have it. Tap one to see those shows.
 - **Combine filters**: from a list, **+ Filter** adds any other column. Different columns narrow the list (AND); several values in the same column widen it (OR). Sort by title, year, total time, episode length or seasons. Search titles and notes from the top bar. Every filtered view is a link you can bookmark.
+- **Status options** (Account → Status options, or **Edit options** next to My status on Browse): add statuses, rename them (every show with that status follows), pick a color from 10, and reorder by dragging or with the arrows. The order is used in every status menu and on the browse page. A status still in use can't be removed until those shows are changed.
 - **Show page**: all the details, quick status / want / recommend pickers, notes, **Edit details** for every research column, and the cast from TMDB.
 - **Favorite actors**: tap ♡ on anyone in a show's cast. Their filmography is saved with them, so **Favorite actors** works as a browse category ("shows on my list with Jennifer Saunders").
 - **Actor page**: photo, bio, a note on why you like them, and their full filmography with what's already on your list marked. **+ Add** puts a title on your list with the details filled in from TMDB (status Want to Watch, source "Actor: name"). Talk shows and appearances as themself are hidden unless you ask for them.
-- **Add a show**: search TMDB and pick it; years, seasons, episodes, runtime, genres, network, country, language and show status fill in. Titles not on TMDB can be added by hand.
+- **Add a show**: search TMDB (results appear as you type; **Show more** for the next page). **+ Add** puts a title on your list as Want to Watch with years, seasons, episodes, runtime, genres, network, country, language and show status filled in, with **Undo** in the toast; tap a result to see its details first. Results already on your list say so with their status. If an unlinked show on your list has the same title and a year within one, the result says "Might be on your list" and offers **Link** (connects that show to TMDB and fills its blanks) or **Add anyway**; a title's own page (for example from an actor's filmography) gives the same warning. A search of your list that finds fewer than three shows offers **Search TMDB for "…"**, and `#/add?q=…` links can be bookmarked. Titles not on TMDB can be added by hand.
+- **Updates** (TV shows linked to TMDB): **Check N shows** asks TMDB whether each show was renewed, canceled or ended and whether a new season is out. What TMDB says is stored separately from your own **Show status** label and never overwrites it. The page lists shows you were waiting on that are now ready, what changed since the last check, and labels that disagree with TMDB, each with one-tap fixes or **Dismiss** (hidden until TMDB says something new). A show's page has its own **Check for updates** button. Shows TMDB has confirmed as over are skipped unless you ask.
 - **Link your list to TMDB** (Account → TMDB): matches every title automatically when the title and year agree, and lists the unsure ones for you to pick (or mark "Not on TMDB").
 - **Google Sheet export**: **Update Google Sheet** overwrites a "Watch list (app)" tab in your spreadsheet with the current list. Your original tab is never touched, and sheet edits don't flow back.
 - **Backups**: CSV download, JSON backup and restore.
@@ -71,10 +73,14 @@ TMDB lookups go through the Netlify function, which doesn't run under a plain fi
 
 ## Files
 
-- `public/index.html`, `public/app.js`, `public/styles.css`: the app
-- `public/cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
+- `public/index.html`, `public/styles.css`: the page and its styles
+- `public/js/`: the app, as native ES modules (no build step). `main.js` starts everything.
+  - `state.js`: the list, loading, saving; `shows.js`: facts worked out from a show; `categories.js`: browse columns, filters, sorting
+  - `router.js`: hash routes and rendering; `ui.js`: shared pieces (show cards, status menu, TMDB search)
+  - `tmdb.js`: TMDB lookups and caching; `library.js`: changes that come from TMDB (link, fill in, add, favorite actors)
+  - `views/`: one file per page; `cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
 - `public/config.js`: Supabase project URL, publishable key, owner email
-- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in app.js when you change files)
+- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in `js/version.js` when you change files, and add any new file to `ASSETS`)
 - `netlify/functions/tmdb.mjs`: TMDB proxy (keeps the token secret; signed-in users only; only the lookups the app uses)
 - `netlify/functions/sheet-export.mjs`: sends the list to the Apps Script (owner only)
 - `netlify/lib/auth.mjs`: checks the Supabase sign-in for both functions
