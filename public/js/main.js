@@ -2,7 +2,7 @@
 // Entry point: loads the list, wires up the pages and the search box, then starts cloud sync.
 import { APP_VERSION } from './version.js';
 import { setState, loadState, setRenderer } from './state.js';
-import { route, go, listHash, filtersFrom, render, setViews, syncLastHash, goBack } from './router.js';
+import { route, go, listHash, filtersFrom, render, setViews, syncLastHash, goBack, goForward } from './router.js';
 import { viewBrowse } from './views/browse.js';
 import { viewList } from './views/list.js';
 import { viewShow } from './views/show.js';
@@ -25,6 +25,7 @@ setState(loadState());
 
 document.getElementById('app-version').textContent = `v${APP_VERSION}`;
 document.getElementById('back-btn').addEventListener('click', goBack);
+document.getElementById('fwd-btn').addEventListener('click', goForward);
 document.getElementById('search-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const r = route();

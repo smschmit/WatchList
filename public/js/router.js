@@ -41,14 +41,23 @@ export function syncLastHash() { lastHash = location.hash; stamp(); }
 // How many in-app pages sit behind this one, stamped on each history entry (so it survives reloads),
 // letting the Back button use the browser's Back without ever leaving the app.
 // Code that calls history.replaceState should pass history.state so the stamp is kept.
-let depth = 0;
+// `top` is the depth of the furthest page Forward can reach: a new page drops everything ahead of it.
+// Kept in sessionStorage so a reload still knows; without storage Forward just hides after a reload.
+let depth = 0, top = 0;
+function saveTop() { try { sessionStorage.setItem('watchlist-top', String(top)); } catch {} }
 function stamp() {
   const s = history.state;
   if (s && typeof s.depth === 'number') depth = s.depth;
-  else { depth += 1; history.replaceState({ ...(s || {}), depth }, ''); }
+  else { depth += 1; top = depth; saveTop(); history.replaceState({ ...(s || {}), depth }, ''); }
 }
-if (!history.state || typeof history.state.depth !== 'number') history.replaceState({ ...(history.state || {}), depth: 0 }, '');
-else depth = history.state.depth;
+if (!history.state || typeof history.state.depth !== 'number') {
+  history.replaceState({ ...(history.state || {}), depth: 0 }, '');
+  saveTop();
+} else {
+  depth = history.state.depth;
+  try { top = Math.max(depth, Number(sessionStorage.getItem('watchlist-top')) || 0); } catch { top = depth; }
+}
+export function goForward() { if (depth < top) history.forward(); }
 export function goBack() {
   if (depth > 0) { history.back(); return; }
   // Opened straight onto an inner page: nothing in-app behind it, so swap this page for Browse.
@@ -83,6 +92,7 @@ export function render() {
   rebuildActorIndex();
   const r = route();
   document.getElementById('back-btn').hidden = depth === 0 && r.name === 'browse';
+  document.getElementById('fwd-btn').hidden = depth >= top;
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === r.name));
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';

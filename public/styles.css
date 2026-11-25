@@ -47,7 +47,7 @@ body.read-only .edit-only { display: none !important; }
   padding: .6rem 1rem; padding-top: calc(.6rem + env(safe-area-inset-top)); background: var(--card); border-bottom: 1px solid var(--line); }
 .back-btn { font: inherit; font-size: 1.7rem; line-height: 1; color: var(--accent); background: none; border: 0; border-radius: 8px;
   min-width: 2.2rem; min-height: 2.2rem; margin: -.3rem -.6rem -.3rem -.4rem; padding: 0 0 .2rem; cursor: pointer; }
-.back-btn:hover { background: var(--accent-soft); }
+@media (hover: hover) { .back-btn:hover { background: var(--accent-soft); } }
 .brand { font-weight: 700; color: var(--text); white-space: nowrap; }
 .version { font-weight: 400; font-size: .7rem; color: var(--muted); }
 .search { flex: 1 1 200px; }
