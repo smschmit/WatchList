@@ -8,6 +8,12 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 - [ ] **Link the remaining TV shows to TMDB** (☰ → TMDB → Link titles). Unlinked shows can't be checked or recommended from.
 - [ ] **Work through the first "Show status to review" list.** Expect a long list: 214 shows had no Show status.
 
+- [ ] **Plan: make Updates checks faster.** Finished shows are now always checked (about 310 more shows per run), so a full check is slow. Ideas to weigh, not decided:
+  - Check ended/canceled Finished shows less often (e.g. once a month) instead of every run.
+  - Use TMDB's `/tv/changes` feed to check only shows that changed since the last run.
+  - Run more checks at once than the current 4.
+  - Run checks in the background on a schedule (Netlify scheduled function) so the page shows results instead of waiting.
+
 ## Fields and tags (next steps)
 
 - [ ] **Deploy, then run Fill from TMDB:** **Try 10 first**, look at a few show pages, then fill the rest. Needs the Netlify deploy (the TMDB proxy now allows keyword lookups). Tested on 99 of your shows: Setting came from Wikidata for 42%, TMDB keywords 16%, nothing 43%; Era from Wikidata 8%, keywords 19%, a Present day guess 60%, nothing 13%; Tone from keywords 13%, genres 12%, nothing 74%.

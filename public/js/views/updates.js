@@ -3,8 +3,9 @@
 import { el, toast } from '../util.js';
 import { state, readOnly, save, canEdit } from '../state.js';
 import { checkFacts } from '../library.js';
-import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY } from '../facts.js';
+import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
 import { poster, statusSelect } from '../ui.js';
+import { statusNames } from '../categories.js';
 
 // Kept outside the view so a check keeps going (and its progress shows) if you open a show and come back.
 let checker = null; // { running, done, total, changed, missing, onProgress }
@@ -12,7 +13,8 @@ let checker = null; // { running, done, total, changed, missing, onProgress }
 const linkedTv = () => state.shows.filter((s) => s.tmdb && s.tmdb.id && s.tmdb.type === 'tv');
 // Shows you have as over, once TMDB has confirmed it, rarely change, so they're skipped unless asked
 // (revivals are the exception the checkbox is for). Everything else, including never-checked shows, is checked.
-const worthChecking = (s) => WAITING.includes(s.status) || labelClass(s.showStatus) !== 'over' || !s.facts || factClass(s.facts) !== 'over';
+// Finished shows are always checked, so a revival of something you watched to the end isn't missed.
+const worthChecking = (s) => WAITING.includes(s.status) || s.status === FINISHED || labelClass(s.showStatus) !== 'over' || !s.facts || factClass(s.facts) !== 'over';
 
 async function runCheck(list) {
   checker = { running: true, done: 0, total: list.length, changed: 0, missing: 0, onProgress: checker && checker.onProgress };
@@ -76,8 +78,9 @@ export function viewUpdates() {
       .sort((a, b) => a.s.title.localeCompare(b.s.title));
     const groups = [
       ['Ready to watch', 'Shows you were waiting on.', items.filter((x) => x.u.ready)],
-      ['What changed', 'Since the previous check.', items.filter((x) => !x.u.ready && x.u.changes.length)],
-      ['Show status to review', 'Your label and TMDB disagree, or TMDB has more seasons than your list.', items.filter((x) => !x.u.ready && !x.u.changes.length)],
+      ['More coming', 'Shows you finished that have a new season on the way or out.', items.filter((x) => !x.u.ready && x.u.more)],
+      ['What changed', 'Since the previous check.', items.filter((x) => !x.u.ready && !x.u.more && x.u.changes.length)],
+      ['Show status to review', 'Your label and TMDB disagree, or TMDB has more seasons than your list.', items.filter((x) => !x.u.ready && !x.u.more && !x.u.changes.length)],
     ];
     list.replaceChildren();
     if (!items.length) list.append(el('p', { class: 'muted' }, linkedTv().some((s) => s.facts) ? 'Nothing new. Everything matches TMDB.' : 'Run a check to see what\'s new.'));
@@ -93,6 +96,7 @@ export function viewUpdates() {
     const act = (fn) => () => { if (!canEdit()) return; fn(); s.facts.changes = []; save({ quiet: true }); renderList(); };
     const lines = [...u.changes];
     if (u.ready) lines.push(u.ready);
+    if (u.more) lines.push(u.more);
     if (u.conflict) lines.push(u.conflict.text);
     if (u.seasons) lines.push(`TMDB has ${u.seasons} seasons; your list says ${s.seasons}.`);
     const href = `#/show/${encodeURIComponent(s.id)}`;
@@ -104,6 +108,8 @@ export function viewUpdates() {
           el('ul', { class: 'update-lines' }, lines.map((l) => el('li', {}, l))))),
       el('div', { class: 'btn-row' },
         u.ready ? el('button', { class: 'btn small primary', onclick: act(() => { s.status = READY; }) }, 'Mark ready to watch') : null,
+        u.more ? el('button', { class: 'btn small primary', onclick: act(() => { s.status = waitingStatus(statusNames()); }) }, 'Waiting for next season') : null,
+        u.more && u.seasons ? el('button', { class: 'btn small', onclick: act(() => { s.status = READY; }) }, 'Mark ready to watch') : null,
         u.conflict ? u.conflict.labels.map((l) => el('button', { class: 'btn small', onclick: act(() => { s.showStatus = l; }) }, `Show status: ${l}`)) : null,
         u.seasons ? el('button', { class: 'btn small', onclick: act(() => { s.seasons = u.seasons; if (f.episodes) s.episodes = f.episodes; }) },
           `Update to ${u.seasons} seasons`) : null,
