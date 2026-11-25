@@ -9,17 +9,19 @@ export const cfg = window.WATCHLIST_CONFIG || {};
 // ---------- TMDB ----------
 // Responses are cached on this device (not synced) so pages open fast and work offline.
 export const memCache = new Map();
-export function cacheGet(key) {
-  if (memCache.has(key)) return memCache.get(key);
+// maxAge: how long a saved answer stays good (default 7 days). The in-memory copy lasts until the page reloads.
+export function cacheGet(key, maxAge = 7 * 864e5) {
+  const mem = memCache.get(key);
+  if (mem && Date.now() - mem.t < maxAge) return mem.v;
   try {
     const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
     const hit = all[key];
-    if (hit && Date.now() - hit.t < 7 * 864e5) { memCache.set(key, hit.v); return hit.v; }
+    if (hit && Date.now() - hit.t < maxAge) { memCache.set(key, hit); return hit.v; }
   } catch {}
   return undefined;
 }
 export function cacheSet(key, v) {
-  memCache.set(key, v);
+  memCache.set(key, { t: Date.now(), v });
   try {
     const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
     all[key] = { t: Date.now(), v };
@@ -47,8 +49,8 @@ export async function tmdb(path, params = {}) {
   }
   return res.json();
 }
-export async function cached(key, fn) {
-  const hit = cacheGet(key);
+export async function cached(key, fn, maxAge) {
+  const hit = cacheGet(key, maxAge);
   if (hit !== undefined) return hit;
   const v = await fn();
   cacheSet(key, v);
@@ -134,6 +136,16 @@ export function getBackdrops(t) {
       .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.vote_count || 0) - (a.vote_count || 0))
       .slice(0, 6).map((b) => ({ path: b.file_path }));
   });
+}
+// Where a title is streaming, free, for rent or for sale in one country (TMDB's data, from JustWatch).
+// TMDB answers for every country at once; only the one asked for is kept. Cached for a day, since catalogs change.
+export function getWatchProviders(t, region) {
+  return cached(`watch:${region}:${t.type}:${t.id}`, async () => {
+    const d = await tmdb(`/${t.type}/${t.id}/watch/providers`);
+    const r = (d.results || {})[region] || {};
+    const slim = (list) => (list || []).map((p) => ({ id: p.provider_id, name: p.provider_name, logo: p.logo_path, order: p.display_priority ?? 999 }));
+    return { link: r.link || '', flatrate: slim(r.flatrate), free: slim(r.free), ads: slim(r.ads), rent: slim(r.rent), buy: slim(r.buy) };
+  }, 864e5);
 }
 // One still per episode of a season (what TMDB shows as the episode's picture). Only episode numbers are kept, no titles.
 export function getSeasonStills(t, n) {

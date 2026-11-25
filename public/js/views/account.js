@@ -85,5 +85,5 @@ export function viewAccount() {
         el('button', { class: 'btn', onclick: () => download(`watch-list-backup-${today()}.json`, JSON.stringify(state, null, 1), 'application/json') }, 'Download backup'),
         el('button', { class: 'btn edit-only', onclick: () => file.click() }, 'Import backup…'), file),
       el('p', { class: 'muted small' }, 'Update Google Sheet overwrites the “Watch list (app)” tab with the current list. Edits made in the sheet don’t come back into the app.')),
-    el('p', { class: 'muted small' }, `Version ${APP_VERSION}. Show data and images from TMDB; this app is not endorsed or certified by TMDB.`));
+    el('p', { class: 'muted small' }, `Version ${APP_VERSION}. Show data and images from TMDB; this app is not endorsed or certified by TMDB. Where to watch data from JustWatch.`));
 }

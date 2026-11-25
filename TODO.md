@@ -58,6 +58,47 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 
 Other image sources if TMDB falls short: TVmaze (free, no key, character photos, CC BY-SA attribution) and Fanart.tv (free key, logos and art).
 
+## Where to watch
+
+Show where each title is streaming, renting or for sale, and answer the main question it raises: what on my Want to Watch list can I watch tonight on services I already pay for?
+
+### Data source
+
+- TMDB's `/{tv|movie}/{id}/watch/providers`, which the app's TMDB token already covers. Checked live: Breaking Bad returns US → Netflix (subscription), plus Amazon Video, Apple TV Store, Google Play, Fandango At Home (buy). Results are per country, split into `flatrate` (subscription), `free`, `ads`, `rent` and `buy`, each with provider id, name, logo and display priority.
+- The data comes from JustWatch. TMDB's terms require crediting JustWatch wherever it's shown.
+- Limits: no per-provider deep links (only one TMDB "watch" page per title, which links onward), no "leaving on" dates, no per-season detail. Unlinked titles get nothing, so linking the rest to TMDB matters more.
+- `/watch/providers/{tv|movie}?watch_region=US` lists every provider in a region, for the "My services" picker.
+
+### Proposed design
+
+- **Kept apart from Network / platform.** `network` stays your original-network field and is never overwritten. Where to watch is TMDB data, stored like `facts`: `show.watch = { region, checkedAt, flatrate: [ids], free: [ids], ads: [ids], rent: [ids], buy: [ids] }`, never edited by hand. Provider names and logos live once in `state.providers` (id → name, logo), not on every show.
+- **Region:** one setting, default US. Stored with the list, so every device and viewer sees the same region.
+- **My services:** Account → Where to watch → pick the services you subscribe to from TMDB's provider list (logos). Saved in `state.myServices`.
+- **Fold duplicate plans:** "Netflix Standard with Ads" → Netflix, "Amazon Prime Video with Ads" → Prime Video; Amazon/Apple/Roku "channels" (e.g. "HBO Max Amazon Channel") count as the parent service, labeled "via Amazon". A small hand-kept map, falling back to TMDB's name.
+- **Show page:** a "Where to watch" line under the meta line: subscription services as logo chips (yours highlighted and listed first), then free/with ads, then a collapsed "Rent or buy from N stores". Each links to the TMDB watch page. "Data from JustWatch · checked 12 Nov". Opening the page refreshes the stored snapshot if it's over 7 days old.
+- **Browse:** a **Where to watch** category (multi-value, subscription + free only, so rent/buy don't make every title count under Apple TV Store) and an **On my services** category (Yes / Rent or buy only / Not available / Not checked). Combined with My status = Want to Watch, that's the "watch tonight" list, and it's a bookmarkable link.
+- **Bulk check:** Account → TMDB → **Check where to watch** for all linked titles, using the same few-at-a-time approach as the Updates check, with **Try 10 first**. Skips titles checked in the last 30 days unless asked. About 1,200 calls on a full run.
+- **Updates page:** a "Now on your services" section for Want to Watch / Waiting titles that weren't on any of your services at the last check and now are. "Left your services" for titles that dropped off, since TMDB gives no warning before they go.
+- **Proxy:** add `/^\/(tv|movie)\/\d+\/watch\/providers$/` and `/^\/watch\/providers\/(tv|movie)$/` to `ALLOWED` in `netlify/functions/tmdb.mjs`. Needs a deploy before anything works on the live site.
+- **Credit:** add "Where to watch data from JustWatch" to the Account credit line and the README.
+
+### Build order
+
+- [x] **1. Show page line, live only (v0.7.6).** Proxy allows `/{tv|movie}/{id}/watch/providers` and `/watch/providers/{tv|movie}`; `public/js/watch.js` shows Stream / Free / Rent or buy on show and title pages (US), cached on the device for a day; plans and Amazon/Apple/Roku channels folded into one service; JustWatch credit on the block, Account page and README. A service in both Free and Stream is listed under Free only.
+  - [ ] Try it on real shows after deploy; check the folding (live-TV services like YouTube TV, TBS, Spectrum also show under Stream, which step 2's My services highlighting should make less noisy).
+- [ ] **2. Region and My services.** Account section with the provider picker; show page highlights yours.
+- [ ] **3. Stored snapshot, bulk check, browse categories.** `show.watch`, `state.providers`, Check where to watch, Where to watch and On my services categories.
+- [ ] **4. Updates integration.** Now on / left your services.
+
+### Open decisions
+
+- [ ] **Region:** US only, or should a second region be checkable (e.g. UK, for the BBC / Channel 4 / ITV titles)? Adds a picker and doubles bulk calls.
+- [ ] **Rent and buy:** show them at all? They're on almost every title and add noise. Proposed: collapsed on the show page, left out of browse.
+- [ ] **Stored on each show (synced) or on this device only?** Stored is needed for browse and Updates; device-only keeps the synced list smaller. Proposed: stored, ids only (a few bytes per show).
+- [ ] **Sheet export:** add a "Where to watch" column with your services' names?
+- [x] **Auto-fill Network from it?** Decided no: the original network and today's streamers are separate facts (The Office: NBC, now Peacock). Network stays your field.
+- [ ] Later: use My services to filter recommendations (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
+
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
 
 - [ ] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand.

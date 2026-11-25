@@ -7,6 +7,7 @@ import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
 import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile } from '../ui.js';
 import { backdropCard } from '../images.js';
+import { whereToWatch } from '../watch.js';
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
 export function viewTitle(r) {
@@ -50,6 +51,7 @@ export function viewTitle(r) {
       info.facts || info.country ? el('p', { class: 'small' },
         [info.facts && `TMDB: ${[info.facts.status, describeNext(info.facts)].filter(Boolean).join(', ')}`, [info.country, info.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       info.genres.length ? el('p', { class: 'small' }, info.genres.join(' · ')) : null,
+      whereToWatch(t),
       d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null,
       d.overview ? el('p', {}, d.overview) : null,
       matchNote || el('p', { class: 'muted small' }, 'Not on your list yet.'),
