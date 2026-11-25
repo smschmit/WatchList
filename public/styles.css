@@ -223,3 +223,9 @@ button.chip { font-family: inherit; cursor: pointer; }
 .star { font-size: 1.5rem; line-height: 1; background: none; border: 0; padding: .1rem; cursor: pointer; color: var(--muted); }
 .star.on { color: #e3a008; }
 .star:disabled { cursor: default; }
+/* Updates page */
+.update-head { display: flex; gap: .75rem; align-items: flex-start; }
+.update-head .poster { flex: none; }
+.update-lines { margin: .4rem 0 0; padding-left: 1.1rem; }
+.update-lines li { margin: .1rem 0; }
+.facts-line { margin-top: -.25rem; }

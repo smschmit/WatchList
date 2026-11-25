@@ -11,6 +11,7 @@ A small installable web app for browsing a TV and movie watch list by any column
 - **Favorite actors**: tap ♡ on anyone in a show's cast. Their filmography is saved with them, so **Favorite actors** works as a browse category ("shows on my list with Jennifer Saunders").
 - **Actor page**: photo, bio, a note on why you like them, and their full filmography with what's already on your list marked. **+ Add** puts a title on your list with the details filled in from TMDB (status Want to Watch, source "Actor: name"). Talk shows and appearances as themself are hidden unless you ask for them.
 - **Add a show**: search TMDB and pick it; years, seasons, episodes, runtime, genres, network, country, language and show status fill in. Titles not on TMDB can be added by hand.
+- **Updates** (TV shows linked to TMDB): **Check N shows** asks TMDB whether each show was renewed, canceled or ended and whether a new season is out. What TMDB says is stored separately from your own **Show status** label and never overwrites it. The page lists shows you were waiting on that are now ready, what changed since the last check, and labels that disagree with TMDB, each with one-tap fixes or **Dismiss** (hidden until TMDB says something new). A show's page has its own **Check for updates** button. Shows TMDB has confirmed as over are skipped unless you ask.
 - **Link your list to TMDB** (Account → TMDB): matches every title automatically when the title and year agree, and lists the unsure ones for you to pick (or mark "Not on TMDB").
 - **Google Sheet export**: **Update Google Sheet** overwrites a "Watch list (app)" tab in your spreadsheet with the current list. Your original tab is never touched, and sheet edits don't flow back.
 - **Backups**: CSV download, JSON backup and restore.
@@ -72,10 +73,14 @@ TMDB lookups go through the Netlify function, which doesn't run under a plain fi
 
 ## Files
 
-- `public/index.html`, `public/app.js`, `public/styles.css`: the app
-- `public/cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
+- `public/index.html`, `public/styles.css`: the page and its styles
+- `public/js/`: the app, as native ES modules (no build step). `main.js` starts everything.
+  - `state.js`: the list, loading, saving; `shows.js`: facts worked out from a show; `categories.js`: browse columns, filters, sorting
+  - `router.js`: hash routes and rendering; `ui.js`: shared pieces (show cards, status menu, TMDB search)
+  - `tmdb.js`: TMDB lookups and caching; `library.js`: changes that come from TMDB (link, fill in, add, favorite actors)
+  - `views/`: one file per page; `cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
 - `public/config.js`: Supabase project URL, publishable key, owner email
-- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in app.js when you change files)
+- `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in `js/version.js` when you change files, and add any new file to `ASSETS`)
 - `netlify/functions/tmdb.mjs`: TMDB proxy (keeps the token secret; signed-in users only; only the lookups the app uses)
 - `netlify/functions/sheet-export.mjs`: sends the list to the Apps Script (owner only)
 - `netlify/lib/auth.mjs`: checks the Supabase sign-in for both functions
