@@ -84,7 +84,8 @@ Show where each title is streaming, renting or for sale, and answer the main que
 
 ### Build order
 
-- [ ] **1. Show page line, live only.** Proxy change, fetch on open, cache 1 day, credit line. No stored data or settings yet. Small, and enough to check the data on your real shows.
+- [x] **1. Show page line, live only (v0.7.0).** Proxy allows `/{tv|movie}/{id}/watch/providers` and `/watch/providers/{tv|movie}`; `public/js/watch.js` shows Stream / Free / Rent or buy on show and title pages (US), cached on the device for a day; plans and Amazon/Apple/Roku channels folded into one service; JustWatch credit on the block, Account page and README. A service in both Free and Stream is listed under Free only.
+  - [ ] Try it on real shows after deploy; check the folding (live-TV services like YouTube TV, TBS, Spectrum also show under Stream, which step 2's My services highlighting should make less noisy).
 - [ ] **2. Region and My services.** Account section with the provider picker; show page highlights yours.
 - [ ] **3. Stored snapshot, bulk check, browse categories.** `show.watch`, `state.providers`, Check where to watch, Where to watch and On my services categories.
 - [ ] **4. Updates integration.** Now on / left your services.

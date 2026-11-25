@@ -236,6 +236,15 @@ button.chip { font-family: inherit; cursor: pointer; }
 .update-lines { margin: .4rem 0 0; padding-left: 1.1rem; }
 .update-lines li { margin: .1rem 0; }
 .facts-line { margin-top: -.25rem; }
+/* Where to watch */
+.where-to-watch { margin: .6rem 0; }
+.where-to-watch h3.section { margin: 0 0 .25rem; }
+.watch-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.watch-label { min-width: 3.5rem; }
+.watch-chip { padding: .15rem .55rem .15rem .2rem; }
+.watch-chip img { width: 22px; height: 22px; border-radius: 5px; display: block; }
+.watch-shop summary { cursor: pointer; color: var(--accent); margin: .2rem 0; }
+.watch-credit { margin: .3rem 0 0; }
 /* Images: backdrops and spoiler-safe episode stills */
 .backdrop-strip { display: flex; gap: .5rem; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: .3rem; }
 .thumb { padding: 0; border: 0; background: var(--line); border-radius: 8px; overflow: hidden; cursor: zoom-in; flex: none; display: block; }

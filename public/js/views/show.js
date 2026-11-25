@@ -8,6 +8,7 @@ import { stars } from '../categories.js';
 import { getCast, getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
+import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
 import { listHash } from '../router.js';
@@ -40,6 +41,7 @@ export function viewShow(r) {
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       factsLine(s),
+      whereToWatch(s.tmdb),
       chips('genre', s.genres), sourcedFields(s), chips('tag', s.tags),
       descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
