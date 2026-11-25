@@ -99,55 +99,47 @@ Show where each title is streaming, renting or for sale, and answer the main que
 - [x] **Auto-fill Network from it?** Decided no: the original network and today's streamers are separate facts (The Office: NBC, now Peacock). Network stays your field.
 - [ ] Later: use My services to filter recommendations (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
 
-## Seasons, episodes and songs
+## Seasons, episodes and where I am
 
-A season → episode guide on TV show pages, where you are in each show, and the songs you noticed in an episode.
+A season → episode guide on TV show pages, and where you are in each show. (Songs are benched: see the end of this section.)
 
-### Data sources
+### Data source
 
-- **Seasons and episodes:** TMDB, already in use. `/tv/{id}` gives the season list and `/tv/{id}/season/{n}` gives every episode (number, title, overview, air date, runtime, still). The proxy already allows both, and `getDetails` / `getSeasonStills` already fetch them. Nothing new to set up.
-- **Songs:** TMDB has no music data, and no free source maps songs to episodes. Tunefind and WhatSong have the data but no public API, and scraping them breaks their terms and stops working without warning. So songs are **entered by you**, with a song search to fill in the details:
-  - **iTunes Search API** (free, no key): title, artist, album, artwork, a 30-second preview and an Apple Music link. Goes through a small Netlify function like `tmdb.mjs`. Not yet tested: this environment couldn't reach `itunes.apple.com`, so check it works from Netlify first.
-  - Plain links built from title + artist (Spotify, YouTube, Apple Music search) need no API at all and are the fallback.
-  - A **Tunefind** link per episode (`tunefind.com/show/<slug>/season-<n>/<episode-id>`) is useful for looking a song up by hand; the episode id isn't predictable, so link to the show's Tunefind page instead.
+- TMDB, already in use. `/tv/{id}` gives the season list and `/tv/{id}/season/{n}` gives every episode (number, title, overview, air date, runtime, still). The proxy already allows both, and `getDetails` / `getSeasonStills` already fetch them. Nothing new to set up.
 
 ### Proposed design
 
-- **Episodes come from TMDB live, not stored.** Cached on the device like stills (7 days; 1 day for the current season of a show that's still airing). Only your own data is saved.
-- **Where you are:** `show.progress = { season, episode, at }`, the last episode you've watched. One field, not a per-episode checklist, which is what matters for spoilers and "what's next" and keeps the synced list small. A per-episode `watched` map can come later if wanted.
-- **Songs:** a new top-level list `state.songs = [{ id, showId, season, episode, title, artist, note, scene, link, art, addedAt }]`. A top-level list of items with ids already merges item by item in `cloud.js` (`mergeUnknown`), so edits on two devices both survive with no sync changes. Keeping songs off the show record also keeps the show list itself unchanged. Rough size: ~200 bytes a song, so 2,000 songs ≈ 400 KB next to today's ~650 KB list; fine for one Supabase row and localStorage. If it ever grows far past that, move songs to their own table.
-- **Spoilers:** episode titles, overviews and stills are spoilers. Show them for episodes up to `progress`, or for everything when **Show spoilers** is on. Later episodes show only "S2 · E5" and the air date. This also covers the "unlock stills up to the current episode" item under Show images.
+- **Episodes come from TMDB live, not stored in the list.** Cached on the device, slimmed to what the page shows (about 4 KB a season). 7 days, or 1 day for the current season of a show that's still airing.
+- **Where you are:** a new top-level map `state.progress = { [showId]: { season, episode, at } }`, the last episode you've watched. Kept off the show record on purpose: sync merges a whole show at a time, so if progress lived on the show, marking an episode on the phone and editing notes on the laptop before they sync would lose one of the two. A separate map merges per show on its own (`mergeKeyed` in `cloud.js`), so progress and show edits never collide. About 50 bytes a show.
+- **Spoilers:** episode titles, overviews and stills are spoilers. Show them for episodes up to your progress, or for everything when **Show spoilers** is on. Later episodes show only "S2 · E5" and the air date. This also covers the "unlock stills up to the current episode" item under Show images.
 
 ### Screens
 
-- **Show page → Episodes card** (TV shows linked to TMDB), replacing the "Episode stills" part of Images: one collapsed row per season ("Season 2 · 10 episodes · 3 watched"), loaded when opened, the season after your progress open by default. Each episode row: S·E, title (if unlocked), air date, runtime, a ✓ to mark watched up to here, and a ♪ count when it has songs. Unaired episodes say "Airs Mar 4".
-- **Episode page** (`#/episode/<showId>/<season>/<episode>`): still, title, overview (if unlocked), Mark watched, and the **Songs** list with **+ Add song**. Add song: search box (iTunes) with results as you type, or type title and artist by hand; optional scene note ("end credits", "the dance at the wedding"). Each song: artwork, title, artist, preview ▶ if there is one, links to listen.
-- **Show header:** "Up next: S2 · E5" with **Watched it** (moves progress on, rolls to the next season). On Want to Watch / not started shows: "Start with S1 · E1".
-- **Songs page** (`#/songs`, Account → Songs or a top-bar link): every song you've saved, newest first, searchable, grouped by show; tap goes to the episode. Shows with songs get a **Has songs** browse filter.
-- **Read-only viewers** see episodes and songs but can't change progress or add songs (same `canEdit()` checks as today).
+- **Show page → Episodes card** (TV shows linked to TMDB), replacing the "Episode stills" part of Images: one collapsed row per season ("Season 2 · 10 episodes · 3 watched"), loaded when opened, the season you're in open by default. Each episode row: S·E, title (if unlocked), air date, runtime, still (if unlocked), and a ✓ to mark watched up to here. Unaired episodes say "Airs Mar 4".
+- **Show header:** "Up next: S2 · E5" with **Watched it** (moves progress on, rolls to the next season). Not started: "Start with S1 · E1".
+- **Read-only viewers** see episodes and progress but can't change it (same `canEdit()` checks as today).
 
 ### Interactions with what's there
 
-- **Status:** marking the last aired episode watched offers to set My status to Finished (or Paused Between Seasons if the show is still running). Setting Finished doesn't touch progress.
-- **Updates page:** with progress known, "new season out" becomes "N new episodes since S3 · E8", and Waiting shows can say exactly where to resume.
-- **Backups / CSV / sheet export:** songs go in the JSON backup automatically (they're in `state`). CSV and the Google Sheet get a "Progress" column; songs stay out of the sheet unless you want a second tab.
+- **Status:** marking the last aired episode watched offers to set My status to Finished (or Paused Between Seasons if the show is still running). Picking Watching on a show with no progress offers "Start at S1 · E1?". Setting Finished doesn't touch progress.
+- **Updates page:** "new season out" becomes "N new episodes since S3 · E8", and Waiting shows say exactly where to resume.
+- **Backups / CSV / sheet export:** progress goes in the JSON backup automatically. CSV and the Google Sheet get a "Progress" column ("S2 · E5").
 
 ### Build order
 
 1. [ ] Episodes card with seasons and episode rows from TMDB, spoiler rules, replaces the stills section (`images.js` → new `episodes.js`).
-2. [ ] `show.progress`, the ✓ per episode, "Up next" in the show header, the Finished prompt.
-3. [ ] Episode page and route.
-4. [ ] `state.songs` with manual add / edit / delete on the episode page.
-5. [ ] Netlify function for iTunes search, song search in Add song, previews and links.
-6. [ ] Songs page and Has songs filter; Updates page uses progress.
-7. [ ] README, `ASSETS` in `sw.js`, bump `CACHE` and `APP_VERSION`.
+2. [ ] `state.progress`, the ✓ per episode, "Up next" in the show header, the status prompts.
+3. [ ] Updates page uses progress; Progress column in CSV and sheet export.
+4. [ ] README, `ASSETS` in `sw.js`, bump `CACHE` and `APP_VERSION`.
 
 ### Open decisions
 
-- [ ] **Progress model:** last-watched episode (recommended) or a full per-episode watched checklist (handles skipping around and rewatches, more taps, bigger data).
-- [ ] **Songs: just ones you noticed, or full soundtracks?** Full soundtracks would need Tunefind data, which means scraping or paying for access; recommended to start with your own.
-- [ ] **Movies:** allow songs on movies too (no seasons; one song list per movie)? Cheap to add with `season`/`episode` left empty.
-- [ ] **Song search source:** iTunes (no key, has previews) or Spotify (needs a developer app and key, better links if you use Spotify).
+- [ ] **Progress model:** last-watched episode (recommended) or a full per-episode checklist (handles skipping around and rewatches, more taps, more data).
+- [ ] **Importing history:** Netflix has no API, but its viewing activity downloads as a CSV (title like "Show: Season 1: Episode", plus date). An import could match those to TMDB episodes and set progress. One-off or occasional, not real time. Trakt.tv (has an API; a browser extension scrobbles Netflix) is the only route to near-automatic tracking, at the cost of another account.
+
+### Benched: songs per episode
+
+Songs you noticed in an episode, kept in a top-level `state.songs` list (merges item by item already). No free source maps songs to episodes (TMDB has none; Tunefind and WhatSong have no public API), so they'd be entered by hand with a song search (iTunes Search API, free, untested from here). Shazam has no API either; the workable route is Shazam's "My Shazam Tracks" playlist synced to Spotify or Apple Music, read through their APIs, with each song's added time matched to what you were watching. Revisit later.
 
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
 
