@@ -2,7 +2,7 @@
 import { toast, today, norm } from './util.js';
 import { state, normShow, normActor, save, canEdit, actorByTmdb } from './state.js';
 import { isMovie } from './shows.js';
-import { statusNames } from './categories.js';
+import { statusNames, spoilerStatusNames } from './categories.js';
 import { go } from './router.js';
 import { tmdb, getPerson, detailsToShow } from './tmdb.js';
 import { applyFacts, factsFromDetails } from './facts.js';
@@ -70,6 +70,14 @@ export async function linkAndFill(s, hit) {
   if (!canEdit()) return;
   linkShow(s, hit);
   await fillFromTmdb(s);
+}
+// Change a show's status. Statuses flagged to (Finished, Rewatching, Dropped unless changed) turn the TV show's
+// Show spoilers switch on; nothing ever turns it off. Returns true if it was just turned on.
+export function setStatus(s, value) {
+  s.status = value;
+  if (s.spoilers || isMovie(s) || !spoilerStatusNames().includes(value)) return false;
+  s.spoilers = true;
+  return true;
 }
 // Status for titles added from TMDB: Want to Watch (you chose to add it), or Identified if that status was removed.
 export const newShowStatus = () => (statusNames().includes('Want to Watch') ? 'Want to Watch' : 'Identified');

@@ -58,7 +58,11 @@ export function viewStatuses() {
         el('div', { class: 'swatches', role: 'group', 'aria-label': `Color for ${st.name}` },
           Object.entries(STATUS_COLORS).map(([c, label]) => el('button', { type: 'button', title: label, 'aria-label': label, 'aria-pressed': String(c === st.color),
             class: `swatch ${c === 'none' ? 'swatch-none' : `st-${c}`} ${c === st.color ? 'current' : ''}`,
-            onclick: () => { if (c !== st.color) commit(list.map((x, j) => (j === i ? { ...x, color: c } : x))); } })))));
+            onclick: () => { if (c !== st.color) commit(list.map((x, j) => (j === i ? { ...x, color: c } : x))); } }))),
+        el('label', { class: 'inline small spoiler-flag', title: 'Choosing this status turns on a TV show’s Show spoilers switch (episode stills)' },
+          el('input', { type: 'checkbox', checked: st.spoilers, onchange: (e) => {
+            if (!commit(list.map((x, j) => (j === i ? { ...x, spoilers: e.target.checked } : x)))) e.target.checked = st.spoilers;
+          } }), 'Turns on spoilers')));
     // Drag by the handle on desktop; the arrows work everywhere.
     handle.draggable = true;
     handle.addEventListener('dragstart', (e) => {
@@ -85,7 +89,7 @@ export function viewStatuses() {
   };
   return el('div', { class: 'statuses-page' },
     el('h1', {}, 'Status options'),
-    el('p', { class: 'muted small' }, 'This order is used in the status menus and on the browse page. Renaming a status updates every show that has it.'),
+    el('p', { class: 'muted small' }, 'This order is used in the status menus and on the browse page. Renaming a status updates every show that has it. Statuses marked “Turns on spoilers” switch on a TV show’s episode stills when you pick them.'),
     el('ol', { class: 'status-rows' }, rows),
     el('form', { class: 'card status-add row', onsubmit: add }, newName, el('button', { class: 'btn primary', type: 'submit' }, 'Add')),
     el('p', {}, el('a', { href: '#/account' }, '← Account')));

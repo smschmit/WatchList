@@ -5,7 +5,7 @@ import { isMovie, totalHours, fmtHours, years } from './shows.js';
 import { WANT_ORDER, favNamesFor, statusNames, statusColors, defaultStatusColor } from './categories.js';
 import { go, listHash } from './router.js';
 import { searchTmdbPage } from './tmdb.js';
-import { toggleFavorite } from './library.js';
+import { toggleFavorite, setStatus } from './library.js';
 
 export const IMG = 'https://image.tmdb.org/t/p/';
 
@@ -26,8 +26,8 @@ export function statusSelect(s) {
   const sel = el('select', { class: `pill status-select ${statusClass(s.status)}`, 'aria-label': `Status for ${s.title}`,
     onchange: () => {
       if (!canEdit()) { sel.value = s.status; return; }
-      s.status = sel.value; sel.className = `pill status-select ${statusClass(s.status)}`;
-      save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}`);
+      const unlocked = setStatus(s, sel.value); sel.className = `pill status-select ${statusClass(s.status)}`;
+      save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}${unlocked ? ' · spoilers on' : ''}`);
     } },
     SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
   // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.

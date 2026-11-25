@@ -6,7 +6,8 @@ import { FICTION, TONE, ERA_ORDER } from '../sources.js';
 import { fillOne } from '../fill.js';
 import { stars } from '../categories.js';
 import { getCast, getDetails } from '../tmdb.js';
-import { linkShow, fillFromTmdb, checkFacts } from '../library.js';
+import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
+import { imagesSection } from '../images.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
 import { listHash } from '../router.js';
@@ -15,8 +16,15 @@ export function viewShow(r) {
   const s = showById(r.id);
   if (!s) return el('p', { class: 'muted' }, 'Show not found. ', el('a', { href: '#/' }, 'Back to browse'));
   const wrap = el('div', { class: 'show-page' });
+  const images = imagesSection(s);
   const field = (key, label) => {
-    const sel = el('select', { disabled: readOnly, onchange: () => { if (!canEdit()) return; s[key] = sel.value; save({ quiet: true }); toast('Saved'); } },
+    const sel = el('select', { disabled: readOnly, onchange: () => {
+      if (!canEdit()) return;
+      const unlocked = key === 'status' ? setStatus(s, sel.value) : ((s[key] = sel.value), false);
+      save({ quiet: true });
+      if (unlocked && images && images.refresh) images.refresh();
+      toast(unlocked ? 'Saved · spoilers on' : 'Saved');
+    } },
       SELECTS[key]().map((v) => el('option', { value: v, selected: v === s[key] }, v || '—')));
     return el('label', { class: 'field' }, label, sel);
   };
@@ -44,6 +52,7 @@ export function viewShow(r) {
         el('a', { class: 'btn', href: `#/tags/deck?id=${encodeURIComponent(s.id)}` }, 'Review in Tag Deck'),
         s.tmdb && s.tmdb.id && s.tmdb.type === 'tv' ? el('button', { class: 'btn', onclick: (e) => checkOne(s, e.target) }, 'Check for updates') : null,
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
+  if (images) wrap.append(images);
   wrap.append(castSection(s));
   return wrap;
 }

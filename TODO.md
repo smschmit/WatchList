@@ -1,6 +1,6 @@
 # Watch List: to do
 
-Remaining plan for future features. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, the Updates page with a manual check button, the Fiction / Tone / Era / Setting fields with Fill from TMDB, Tag cleanup, and the Tag Deck.
+Remaining plan for future features. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, the Updates page with a manual check button, the Fiction / Tone / Era / Setting fields with Fill from TMDB, Tag cleanup, the Tag Deck, and spoiler-safe show images.
 
 ## Next up
 
@@ -36,18 +36,19 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 - **Stills layout:** a collapsed "Stills" section on the show page, one row per season. A season's stills load only when you open that row, so nothing is fetched for locked shows or for seasons you don't open.
 - **Episode text:** show only "S2 · E4" next to each still, no titles or summaries.
 
-### Build steps
+### Built (v0.6.0)
 
-- [ ] Allowlist `/tv/{id}/images` and `/tv/{id}/season/{n}/episode/{e}/images` (or `/tv/{id}/season/{n}` with `append_to_response=images`) in `netlify/functions/tmdb.mjs`.
-- [ ] Backdrop strip on the show page (TMDB calls live in `public/js/tmdb.js`). Fetch with `append_to_response=images&include_image_language=en,null` on the existing details call, then filter and cap as above.
-- [ ] Backdrop strip on movie pages too (`/movie/{id}` details with the same `append_to_response=images`).
-- [ ] Add `spoilers` (boolean, default false) to the show model in `public/js/state.js` (`normShow` and `SHOW_KEYS`). Data is stored as JSON in Supabase, so no migration.
-- [ ] Keep the auto-on statuses in one list (e.g. `SPOILER_STATUSES`) and set `spoilers = true` wherever status is changed (status menu, show editor). Status names are editable now (`public/js/categories.js`), so a renamed Finished/Rewatching/Dropped would stop triggering it: either update the list on rename or let each status option carry a "turns on spoilers" flag.
-- [ ] Show spoilers switch on TV show pages.
-- [ ] Stills section, rendered only when `spoilers` is true, with lazy per-season loading and caching in the existing TMDB cache. Re-render when the switch or status changes.
-- [ ] Decide whether the sheet export (`apps-script/`) should include the new column.
-- [ ] List any new files under `public/js/` in `ASSETS` in `public/sw.js` and bump the version (see Housekeeping).
-- [ ] TMDB credit line ("This product uses the TMDB API but is not endorsed or certified by TMDB").
+- [x] Proxy allows `/{tv|movie}/{id}/images` and `/tv/{id}/season/{n}`.
+- [x] Backdrop strip on show, movie and title pages (top 6 text-free backdrops by vote, from a separate `/images` call so the cached details stay small). Tap one for a full-size viewer.
+- [x] `spoilers` on the show model; each status option carries a "Turns on spoilers" flag (Account → Status options), so renaming keeps it. Finished, Rewatching and Dropped have it by default.
+- [x] Show spoilers switch and per-season Stills rows on TV show pages; a season loads only when opened (one still per episode from the season details, labeled "S2 · E4" only).
+- [x] TMDB credit line (Account page and README).
+
+### Still open
+
+- [ ] **Try it on real data** after deploy, and check whether the top-6 backdrops spoil anything on shows you're mid-way through. If they do, the fallback is poster only before unlock.
+- [ ] Decide whether the sheet export (`apps-script/`) should include a Spoilers column. Left out for now.
+- [ ] Stills use one image per episode (what the season lookup returns). More per episode would need `/tv/{id}/season/{n}/episode/{e}/images`, one call per episode.
 
 ### Maybe later
 

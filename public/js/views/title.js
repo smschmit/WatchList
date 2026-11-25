@@ -6,6 +6,7 @@ import { getCast, getDetails, detailsToShow } from '../tmdb.js';
 import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
 import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile } from '../ui.js';
+import { backdropCard } from '../images.js';
 
 // ---------- Title page (a TMDB title that may not be on the list yet) ----------
 export function viewTitle(r) {
@@ -18,7 +19,7 @@ export function viewTitle(r) {
   const wrap = el('div', { class: 'show-page' });
   const head = el('div', { class: 'show-head' }, poster(null, 'w342', 'poster big'),
     el('div', { class: 'show-head-body' }, el('h1', {}, 'Loading…')));
-  wrap.append(head);
+  wrap.append(head, backdropCard(t));
   getDetails(t).then(async (d) => {
     const info = normShow(await detailsToShow(t, d));
     const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: async () => {

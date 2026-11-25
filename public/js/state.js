@@ -29,6 +29,7 @@ export function normShow(s) {
     tmdb: s.tmdb || null,
     facts: s.facts || null, // what TMDB said at the last check (see facts.js); never edited by hand
     factsAck: s.factsAck || '', // the facts you dismissed on the Updates page
+    spoilers: !!s.spoilers, // Show spoilers switch: episode stills are shown only when on (images.js)
     // Your own values for the fields filled from TMDB/Wikidata. null = not set, so the sourced value shows (see fieldOf in shows.js);
     // '' or [] = you cleared it on purpose.
     fiction: ownStr(s.fiction), tone: ownStr(s.tone), setting: ownList(s.setting), era: ownList(s.era),
@@ -39,7 +40,7 @@ export function normShow(s) {
 }
 export const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck', 'fiction', 'tone', 'setting', 'era', 'sourced', 'tagsReviewedAt'];
+  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck', 'fiction', 'tone', 'setting', 'era', 'sourced', 'tagsReviewedAt', 'spoilers'];
 const ownStr = (v) => (v == null ? null : String(v));
 const ownList = (v) => (v == null ? null : arr(v));
 export function normActor(a) {
