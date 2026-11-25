@@ -37,11 +37,20 @@ export function remember(key, value) { pageMem.set(`${location.hash}\u0000${key}
 export let lastHash = location.hash;
 // Call after changing the URL with history.replaceState/pushState, so scroll memory stays right.
 export function syncLastHash() { lastHash = location.hash; }
+// Where Back should land on the page just shown. Pages that fill in after a fetch are too short at first,
+// so the browser clamps the scroll; they call restoreScroll() once their content is in.
+let pendingScroll = null;
+export function restoreScroll() {
+  if (pendingScroll && pendingScroll.hash === location.hash) window.scrollTo(0, pendingScroll.y);
+  pendingScroll = null;
+}
 window.addEventListener('hashchange', () => {
   scrollPos.set(lastHash, window.scrollY);
   lastHash = location.hash;
   render();
-  window.scrollTo(0, scrollPos.get(location.hash) || 0);
+  const y = scrollPos.get(location.hash) || 0;
+  pendingScroll = y ? { hash: location.hash, y } : null;
+  window.scrollTo(0, y);
 });
 
 // ---------- Render ----------
