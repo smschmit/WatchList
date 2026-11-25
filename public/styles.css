@@ -32,6 +32,8 @@
   }
 }
 * { box-sizing: border-box; }
+/* No browser back/forward on a sideways overscroll; Back is the button or the system gesture. */
+html, body { overscroll-behavior-x: none; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
 a { color: var(--accent); text-decoration: none; }
 h1 { font-size: 1.6rem; margin: 0 0 .3rem; }
@@ -43,6 +45,9 @@ body.read-only .edit-only { display: none !important; }
 
 .topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
   padding: .6rem 1rem; padding-top: calc(.6rem + env(safe-area-inset-top)); background: var(--card); border-bottom: 1px solid var(--line); }
+.back-btn { font: inherit; font-size: 1.7rem; line-height: 1; color: var(--accent); background: none; border: 0; border-radius: 8px;
+  min-width: 2.2rem; min-height: 2.2rem; margin: -.3rem -.6rem -.3rem -.4rem; padding: 0 0 .2rem; cursor: pointer; }
+@media (hover: hover) { .back-btn:hover { background: var(--accent-soft); } }
 .brand { font-weight: 700; color: var(--text); white-space: nowrap; }
 .version { font-weight: 400; font-size: .7rem; color: var(--muted); }
 .search { flex: 1 1 200px; }
@@ -334,7 +339,8 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .center { text-align: center; }
 
 /* Grabbable scroll handle (fastscroll.js). Appears while scrolling long pages; drag to jump. */
-.fastscroll { position: fixed; right: 0; bottom: 8px; width: 40px; z-index: 6; pointer-events: none; }
+/* Held in from the right edge, where a drag that drifts sideways starts Android's Back gesture. */
+.fastscroll { position: fixed; right: 14px; bottom: 8px; width: 40px; z-index: 6; pointer-events: none; }
 .fastscroll-thumb { position: absolute; top: 0; right: 0; width: 40px; height: 48px; opacity: 0; transition: opacity .25s; touch-action: none; cursor: grab; }
 .fastscroll-thumb::before { content: ''; position: absolute; top: 4px; bottom: 4px; right: 4px; width: 8px; border-radius: 999px; background: var(--accent); opacity: .75; transition: width .15s; }
 .fastscroll.on .fastscroll-thumb { opacity: 1; pointer-events: auto; }

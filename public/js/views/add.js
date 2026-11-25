@@ -45,7 +45,7 @@ export function viewAdd(r) {
       onQuery: (query, t) => {
         const p = new URLSearchParams({ q: query });
         if (t !== 'multi') p.set('type', t);
-        history.replaceState(null, '', `#/add?${p}`);
+        history.replaceState(history.state, '', `#/add?${p}`);
         syncLastHash();
         title.value = query;
       },

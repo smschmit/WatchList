@@ -2,7 +2,7 @@
 import { el, toast, today } from '../util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from '../state.js';
 import { favNamesFor } from '../categories.js';
-import { go, listHash } from '../router.js';
+import { go, listHash, recall, remember, restoreScroll } from '../router.js';
 import { getPerson } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
 import { statusSelect, poster, heartBtn, titleHash, cardClick } from '../ui.js';
@@ -34,16 +34,17 @@ export function viewActor(r) {
       a ? el('label', { class: 'field wide' }, 'Note', note) : null,
       p.bio ? el('details', {}, el('summary', {}, 'Biography'), el('p', { class: 'small' }, p.bio)) : null));
 
-    let showAll = false;
-    let onlyMissing = false;
-    let showTv = true;
-    let showMovies = true;
+    // Remembered per page so Back brings the list back filtered the same way, at the same length.
+    let showAll = recall('showAll', false);
+    let onlyMissing = recall('onlyMissing', false);
+    let showTv = recall('showTv', true);
+    let showMovies = recall('showMovies', true);
     const listBox = el('div', { class: 'credit-list' });
     const controls = el('div', { class: 'row filter-bar' },
-      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: true, onchange: (e) => { showTv = e.target.checked; fill(); } }), ' TV shows'),
-      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: true, onchange: (e) => { showMovies = e.target.checked; fill(); } }), ' Movies'),
-      el('label', { class: 'inline' }, el('input', { type: 'checkbox', onchange: (e) => { onlyMissing = e.target.checked; fill(); } }), ' Only ones not on my list'),
-      el('label', { class: 'inline' }, el('input', { type: 'checkbox', onchange: (e) => { showAll = e.target.checked; fill(); } }), ' Include talk shows and appearances as themself'));
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showTv, onchange: (e) => { showTv = e.target.checked; remember('showTv', showTv); fill(); } }), ' TV shows'),
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showMovies, onchange: (e) => { showMovies = e.target.checked; remember('showMovies', showMovies); fill(); } }), ' Movies'),
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: onlyMissing, onchange: (e) => { onlyMissing = e.target.checked; remember('onlyMissing', onlyMissing); fill(); } }), ' Only ones not on my list'),
+      el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showAll, onchange: (e) => { showAll = e.target.checked; remember('showAll', showAll); fill(); } }), ' Include talk shows and appearances as themself'));
     function fill() {
       const items = p.credits.filter((c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c))
         && (c.type === 'tv' ? showTv : showMovies));
@@ -68,6 +69,7 @@ export function viewActor(r) {
     }
     body.replaceChildren(el('h2', {}, 'Filmography'), controls, listBox);
     fill();
+    restoreScroll();
   }).catch((e) => body.replaceChildren(el('p', { class: 'muted' }, e.message)));
   return wrap;
 }

@@ -26,7 +26,7 @@ export function viewTitle(r) {
     const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: async () => {
       addBtn.disabled = true;
       const s = await addFromTmdb(t, src ? { sources: [src] } : {});
-      if (s) { toast(`Added ${s.title}`); history.replaceState(null, '', `#/show/${encodeURIComponent(s.id)}`); syncLastHash(); render(); }
+      if (s) { toast(`Added ${s.title}`); history.replaceState(history.state, '', `#/show/${encodeURIComponent(s.id)}`); syncLastHash(); render(); }
       else addBtn.disabled = false;
     } }, '+ Add to my list');
     // An unlinked show with the same title and year is probably this one: offer to link it instead of adding a copy.
