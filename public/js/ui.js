@@ -1,10 +1,10 @@
 // Pieces of UI used on several pages.
-import { el, toast, uniq } from './util.js';
+import { el, toast, uniq, norm } from './util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from './state.js';
 import { isMovie, totalHours, fmtHours, years } from './shows.js';
 import { WANT_ORDER, favNamesFor, statusNames, statusColors, defaultStatusColor } from './categories.js';
 import { go, listHash } from './router.js';
-import { searchTmdb } from './tmdb.js';
+import { searchTmdbPage } from './tmdb.js';
 import { toggleFavorite } from './library.js';
 
 export const IMG = 'https://image.tmdb.org/t/p/';
@@ -121,32 +121,67 @@ export function heartBtn(p, fav) {
 }
 
 // Search TMDB and pick a match. type: 'tv' | 'movie' | 'multi'
-export function tmdbPicker(initial, type, year, onPick) {
+// Options: extras(hit, refresh) returns nodes shown under a result (refresh re-draws that result);
+// onQuery(query, type) runs after each new search; autoRun searches for `initial` straight away.
+// Searches as you type (after a pause); a newer search wins over a slower older one.
+export function tmdbPicker(initial, type, year, onPick, { extras, onQuery, autoRun = false } = {}) {
   const box = el('div', { class: 'tmdb-picker' });
-  const input = el('input', { type: 'search', value: initial || '', placeholder: 'Search TMDB', 'aria-label': 'Search TMDB' });
-  const typeSel = el('select', { 'aria-label': 'Type' },
+  const input = el('input', { type: 'search', value: initial || '', placeholder: 'Search TMDB', 'aria-label': 'Search TMDB', autocomplete: 'off' });
+  const typeSel = el('select', { 'aria-label': 'Type', onchange: () => { if (input.value.trim()) run(); } },
     [['multi', 'TV + movies'], ['tv', 'TV'], ['movie', 'Movies']].map(([v, l]) => el('option', { value: v, selected: v === type }, l)));
-  const results = el('div', { class: 'tmdb-results' });
-  async function run() {
-    results.replaceChildren(el('p', { class: 'muted' }, 'Searching…'));
+  const results = el('div', { class: 'tmdb-results', 'aria-live': 'polite' });
+  const more = el('button', { class: 'btn small', type: 'button', hidden: true, onclick: () => run(page + 1) }, 'Show more');
+  let seq = 0, page = 1, timer;
+  // Each result lives in a stable slot, so refresh (from a later Undo too) always redraws what's on screen.
+  const renderHit = (h) => {
+    const slot = el('div', { class: 'hit-slot' });
+    const draw = () => slot.replaceChildren(tmdbHit(h, { onclick: () => onPick(h), extra: extras ? extras(h, draw) : null }));
+    draw();
+    return slot;
+  };
+  async function run(p = 1) {
+    clearTimeout(timer);
+    const q = input.value.trim(), t = typeSel.value;
+    const my = ++seq;
+    if (!q) { results.replaceChildren(); more.hidden = true; return; }
+    if (p === 1) { results.replaceChildren(el('p', { class: 'muted' }, 'Searching…')); more.hidden = true; }
+    more.disabled = true;
     try {
-      const hits = await searchTmdb(input.value, typeSel.value);
-      results.replaceChildren(...hits.slice(0, 10).map((h) => tmdbHit(h, { onclick: () => onPick(h) })));
-      if (!hits.length) results.append(el('p', { class: 'muted' }, 'No results.'));
-    } catch (e) { results.replaceChildren(el('p', { class: 'muted' }, e.message)); }
+      const r = await searchTmdbPage(q, t, p);
+      if (my !== seq) return; // a newer search started while this one was out
+      page = p;
+      const nodes = r.hits.map(renderHit);
+      if (p === 1) results.replaceChildren(...nodes); else results.append(...nodes);
+      if (p === 1 && !r.hits.length) results.append(el('p', { class: 'muted' }, 'No results.'));
+      more.hidden = !r.more;
+      if (p === 1 && onQuery) onQuery(q, t);
+    } catch (e) {
+      if (my !== seq) return;
+      if (p === 1) results.replaceChildren(el('p', { class: 'muted' }, e.message)); else toast(e.message);
+    }
+    more.disabled = false;
   }
-  box.append(el('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); run(); } }, input, typeSel, el('button', { class: 'btn' }, 'Search')), results);
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    if (input.value.trim().length >= 2) timer = setTimeout(() => run(), 350);
+  });
+  box.append(el('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); run(); } }, input, typeSel, el('button', { class: 'btn' }, 'Search')),
+    results, el('div', { class: 'more-row' }, more));
+  if (autoRun && input.value.trim()) run();
   return box;
 }
 // One TMDB search result. The card does the page's action (pick / link); "Details" opens the title's own page.
-export function tmdbHit(h, { onclick, picked = false } = {}) {
-  return el('div', { class: `tmdb-hit-wrap${picked ? ' picked' : ''}` },
+// `extra`: nodes for an actions row under the card (the Add page's + Add / Link / On your list).
+export function tmdbHit(h, { onclick, picked = false, extra = null } = {}) {
+  const original = h.original && norm(h.original) !== norm(h.title) ? h.original : null;
+  const details = el('a', { class: 'hit-details small', href: titleHash(h) }, 'Details');
+  return el('div', { class: `tmdb-hit-wrap${picked ? ' picked' : ''}${extra ? ' has-actions' : ''}` },
     el('button', { class: `tmdb-hit${picked ? ' picked' : ''}`, 'aria-pressed': picked ? 'true' : null, onclick },
       poster(h.poster), el('div', {}, el('b', {}, h.title), ` ${h.year || ''} · ${h.type === 'tv' ? 'TV' : 'Movie'}`,
+        original ? el('div', { class: 'muted small' }, original) : null,
         el('div', { class: 'muted small clamp' }, h.overview))),
-    el('a', { class: 'hit-details small', href: titleHash(h) }, 'Details'));
+    extra ? el('div', { class: 'hit-actions' }, extra, details) : details);
 }
-
 export function titleHash(t, src) {
   const mine = listShowFor(t);
   if (mine) return `#/show/${encodeURIComponent(mine.id)}`;

@@ -3,7 +3,7 @@ import { el, toast } from '../util.js';
 import { readOnly, normShow, listShowFor } from '../state.js';
 import { go, syncLastHash, render } from '../router.js';
 import { getCast, getDetails, detailsToShow } from '../tmdb.js';
-import { addFromTmdb } from '../library.js';
+import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
 import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile } from '../ui.js';
 
@@ -13,7 +13,7 @@ export function viewTitle(r) {
   if (!m) return el('p', { class: 'muted' }, 'Title not found. ', el('a', { href: '#/' }, 'Back to browse'));
   const t = { type: m[1], id: Number(m[2]) };
   const mine = listShowFor(t);
-  if (mine) { setTimeout(() => go(`#/show/${encodeURIComponent(mine.id)}`)); return el('div'); }
+  if (mine) { const here = location.hash; setTimeout(() => { if (location.hash === here) go(`#/show/${encodeURIComponent(mine.id)}`); }); return el('div'); }
   const src = r.params.get('src');
   const wrap = el('div', { class: 'show-page' });
   const head = el('div', { class: 'show-head' }, poster(null, 'w342', 'poster big'),
@@ -27,6 +27,22 @@ export function viewTitle(r) {
       if (s) { toast(`Added ${s.title}`); history.replaceState(null, '', `#/show/${encodeURIComponent(s.id)}`); syncLastHash(); render(); }
       else addBtn.disabled = false;
     } }, '+ Add to my list');
+    // An unlinked show with the same title and year is probably this one: offer to link it instead of adding a copy.
+    const match = readOnly ? null : possibleMatch({ ...t, title: info.title, original: d.original_name || d.original_title, year: info.year });
+    let matchNote = null;
+    if (match) {
+      addBtn.textContent = 'Add anyway';
+      addBtn.classList.remove('primary');
+      const href = `#/show/${encodeURIComponent(match.id)}`;
+      matchNote = el('p', { class: 'small maybe' }, 'Might already be on your list as ',
+        el('a', { href }, `${match.title}${match.year ? ` (${match.year})` : ''}`), '. ',
+        el('button', { class: 'btn small primary', onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          const here = location.hash;
+          await linkAndFill(match, { ...t, title: info.title, year: info.year, poster: d.poster_path });
+          if (location.hash === here) go(href); // linking re-renders this page, which may already have moved on to the show
+        } }, 'Link it to this title'));
+    }
     head.replaceChildren(poster(d.poster_path, 'w342', 'poster big'), el('div', { class: 'show-head-body' },
       el('h1', {}, info.title),
       el('p', { class: 'muted' }, metaLine(info)),
@@ -35,7 +51,7 @@ export function viewTitle(r) {
       info.genres.length ? el('p', { class: 'small' }, info.genres.join(' · ')) : null,
       d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null,
       d.overview ? el('p', {}, d.overview) : null,
-      el('p', { class: 'muted small' }, 'Not on your list yet.'),
+      matchNote || el('p', { class: 'muted small' }, 'Not on your list yet.'),
       el('div', { class: 'btn-row' }, addBtn,
         el('a', { class: 'btn ghost', href: `https://www.themoviedb.org/${t.type}/${t.id}`, target: '_blank', rel: 'noopener' }, 'View on TMDB'))));
   }).catch((e) => head.replaceChildren(el('p', { class: 'muted' }, e.message)));

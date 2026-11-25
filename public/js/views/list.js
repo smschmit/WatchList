@@ -1,6 +1,6 @@
 // Filtered, sorted list of shows.
 import { el } from '../util.js';
-import { state } from '../state.js';
+import { state, readOnly } from '../state.js';
 import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
 import { go, listHash, filtersFrom } from '../router.js';
 import { emptyState, statusClass, showCard } from '../ui.js';
@@ -104,5 +104,8 @@ export function viewList(r) {
   page();
   wrap.append(list, more);
   if (!results.length) wrap.append(el('p', { class: 'muted' }, 'No shows match.'));
+  // A search that finds little on the list is often a show you want to add.
+  if (q && results.length < 3 && !readOnly) wrap.append(el('p', { class: 'muted small' }, results.length ? 'Not what you wanted? ' : '',
+    el('a', { href: `#/add?${new URLSearchParams({ q })}` }, `Search TMDB for “${q}”`)));
   return wrap;
 }
