@@ -86,11 +86,21 @@ export function metaLine(s) {
   if (h && !isMovie(s)) bits.push(`${fmtHours(h)} total`);
   return bits.filter(Boolean).join(' · ');
 }
+// Makes a whole card open `href` when tapped, except on the controls inside it (links, buttons, menus, fields),
+// and not when the tap ends a text selection. Ctrl/Cmd-click opens it in a new tab.
+const CONTROLS = 'a, button, select, input, textarea, label, summary, [role="button"]';
+export function cardClick(href) {
+  return (e) => {
+    if (e.target.closest(CONTROLS)) return;
+    if (String(window.getSelection && window.getSelection()).trim()) return;
+    if (e.metaKey || e.ctrlKey) window.open(href, '_blank'); else go(href);
+  };
+}
 export function showCard(s) {
   const favs = favNamesFor(s);
   const href = `#/show/${encodeURIComponent(s.id)}`;
   // A div, not a link, so the status menu inside it works; tapping anywhere else opens the show.
-  return el('div', { class: 'show-card', onclick: (e) => { if (!e.target.closest('select, a')) go(href); } },
+  return el('div', { class: 'show-card', onclick: cardClick(href) },
     poster(s.tmdb && s.tmdb.poster),
     el('div', { class: 'show-card-body' },
       el('div', { class: 'show-card-title' }, el('a', { href }, s.title), statusSelect(s)),
@@ -98,6 +108,18 @@ export function showCard(s) {
       el('div', { class: 'small' }, [...s.genres, ...s.tags.slice(0, 4)].join(' · ')),
       favs.length ? el('div', { class: 'small fav-line' }, '♥ ', favs.join(', ')) : null));
 }
+
+// Compact version of showCard for scanning long lists: title and status, then year, format, genres and tags on one cut-off line.
+export function showRow(s) {
+  const href = `#/show/${encodeURIComponent(s.id)}`;
+  const meta = [years(s), s.format, ...s.genres, ...s.tags].filter(Boolean).join(' · ');
+  return el('div', { class: 'show-row', onclick: cardClick(href) },
+    el('a', { class: 'show-row-title', href }, s.title), statusSelect(s),
+    el('div', { class: 'show-row-meta muted small' }, meta));
+}
+export const DENSITY_KEY = 'watchlist:density';
+export function getDensity() { try { return localStorage.getItem(DENSITY_KEY) === 'rows' ? 'rows' : 'cards'; } catch { return 'cards'; } }
+export function setDensity(v) { try { localStorage.setItem(DENSITY_KEY, v); } catch { /* per-device nicety only */ } }
 
 // ---------- Show page ----------
 export const SELECTS = {
@@ -108,7 +130,7 @@ export const SELECTS = {
 
 export function personTile(p, sub) {
   const fav = actorByTmdb(p.id);
-  return el('div', { class: 'person' },
+  return el('div', { class: 'person clickable', onclick: cardClick(`#/actor/${p.id}`) },
     el('a', { href: `#/actor/${p.id}` }, poster(p.profile, 'w185', 'face')),
     el('div', { class: 'person-body' },
       el('a', { href: `#/actor/${p.id}`, class: 'person-name' }, p.name),

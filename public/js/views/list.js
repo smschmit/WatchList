@@ -1,9 +1,10 @@
 // Filtered, sorted list of shows.
-import { el } from '../util.js';
+import { el, norm } from '../util.js';
+import { totalHours, fmtHours } from '../shows.js';
 import { state, readOnly } from '../state.js';
 import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
-import { go, listHash, filtersFrom } from '../router.js';
-import { emptyState, statusClass, showCard } from '../ui.js';
+import { go, listHash, filtersFrom, render } from '../router.js';
+import { emptyState, statusClass, showCard, showRow, getDensity, setDensity } from '../ui.js';
 
 export function viewList(r) {
   if (!state.shows.length) return emptyState();
@@ -25,7 +26,11 @@ export function viewList(r) {
   if (filters.length || q) bar.append(el('a', { class: 'btn small ghost', href: '#/list' }, 'Clear'));
   const sel = el('select', { 'aria-label': 'Sort', onchange: () => go(listHash(filters, q, sel.value)) },
     Object.entries(SORTS).map(([k, [label]]) => el('option', { value: k, selected: k === sort }, label)));
-  bar.append(el('span', { class: 'spacer' }), el('span', { class: 'muted' }, `${results.length} of ${state.shows.length}`), sel);
+  const density = getDensity();
+  const densityBtn = (v, label) => el('button', { class: `seg-btn ${density === v ? 'on' : ''}`, 'aria-pressed': String(density === v),
+    onclick: () => { if (density !== v) { setDensity(v); render(); } } }, label);
+  bar.append(el('span', { class: 'spacer' }), el('span', { class: 'muted' }, `${results.length} of ${state.shows.length}`),
+    el('span', { class: 'seg', role: 'group', 'aria-label': 'Layout' }, densityBtn('cards', 'Cards'), densityBtn('rows', 'Rows')), sel);
   wrap.append(bar);
   if (!readOnly && results.length && (filters.length || q)) {
     wrap.append(el('p', { class: 'small deck-link' }, el('a', { href: `#/tags/deck?${r.params.toString().replace(/(^|&)sort=[^&]*/, '')}` },
@@ -96,20 +101,27 @@ export function viewList(r) {
   }
   wrap.append(picker);
 
-  const list = el('div', { class: 'show-list' });
-  const PAGE = 150;
-  let shown = 0;
-  const more = el('button', { class: 'btn', onclick: () => page() }, 'Show more');
-  function page() {
-    results.slice(shown, shown + PAGE).forEach((s) => list.append(showCard(s)));
-    shown += PAGE;
-    more.hidden = shown >= results.length;
-  }
-  page();
-  wrap.append(list, more);
+  // Everything at once (no "Show more"), so Back can return to any spot in the list.
+  const item = density === 'rows' ? showRow : showCard;
+  const list = el('div', { class: density === 'rows' ? 'show-rows' : 'show-list' }, results.map((s) => {
+    const node = item(s);
+    node.dataset.jump = jumpLabel(s, sort);
+    return node;
+  }));
+  wrap.append(list);
   if (!results.length) wrap.append(el('p', { class: 'muted' }, 'No shows match.'));
   // A search that finds little on the list is often a show you want to add.
   if (q && results.length < 3 && !readOnly) wrap.append(el('p', { class: 'muted small' }, results.length ? 'Not what you wanted? ' : '',
     el('a', { href: `#/add?${new URLSearchParams({ q })}` }, `Search TMDB for “${q}”`)));
   return wrap;
+}
+
+// What the scroll handle's bubble shows for a show, matching the sort: a letter, a year, an amount of time.
+function jumpLabel(s, sort) {
+  if (sort === 'title') { const c = norm(s.title).charAt(0).toUpperCase(); return /[A-Z]/.test(c) ? c : '#'; }
+  if (sort === 'newest' || sort === 'oldest') return s.year ? String(s.year) : 'No year';
+  if (sort === 'shortest' || sort === 'longest') { const h = totalHours(s); return h ? fmtHours(h) : 'Unknown'; }
+  if (sort === 'eplen') return s.epLength ? `${s.epLength} min` : 'Unknown';
+  if (sort === 'seasons') return s.seasons ? `${s.seasons} season${s.seasons === 1 ? '' : 's'}` : 'Unknown';
+  return '';
 }

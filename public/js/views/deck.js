@@ -17,25 +17,22 @@ const STRUCTURES = ['Serialized', 'Episodic', 'Mixed', 'Anthology'];
 const FIELD_KINDS = ['genre', 'setting', 'era', 'origin', 'fiction', 'tone'];
 let session = null; // { key, queue: [id], i, history: [], draft, saved, skipped }
 
-// Order: shows with no tags or only one-off tags first, then Top 50, then Use to recommend; unreviewed before reviewed.
-function buildQueue(shows, counts) {
-  const rank = (s) => {
-    const thin = !s.tags.length || s.tags.every((t) => counts.get(t) === 1) ? 0 : 1;
-    const rec = s.recommend === 'Top 50' ? 0 : s.recommend ? 1 : 2;
-    return [s.tagsReviewedAt ? 1 : 0, thin, rec];
-  };
-  return [...shows].sort((a, b) => {
-    const ra = rank(a), rb = rank(b);
-    for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
-    return a.title.localeCompare(b.title);
-  }).map((s) => s.id);
+// Order: shows you haven't reviewed first, then reviewed ones, each group shuffled so every session starts somewhere new.
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
 }
+function buildQueue(shows) {
+  return [...shuffle(shows.filter((s) => !s.tagsReviewedAt)), ...shuffle(shows.filter((s) => s.tagsReviewedAt))].map((s) => s.id);
+}
+// The fields section starts closed; opening or closing it sticks for later cards (and later visits, where storage works).
+let fieldsOpen = (() => { try { return localStorage.getItem('deckFieldsOpen') === '1'; } catch { return false; } })();
+function setFieldsOpen(v) { fieldsOpen = v; try { localStorage.setItem('deckFieldsOpen', v ? '1' : '0'); } catch { /* ignore */ } }
 const sessionKey = (r) => r.params.toString();
 function startSession(r) {
-  const counts = tagCounts();
   const filters = filtersFrom(r.params);
   const shows = applyFilters(state.shows, filters, r.params.get('q') || '');
-  const queue = buildQueue(shows, counts);
+  const queue = buildQueue(shows);
   const first = r.params.get('id');
   if (first && showById(first)) { const j = queue.indexOf(first); if (j >= 0) queue.splice(j, 1); queue.unshift(first); }
   session = { key: sessionKey(r), queue, i: 0, history: [], draft: null, saved: 0, skipped: 0, run: 0, filtered: filters.length > 0 || !!r.params.get('q') };
@@ -256,6 +253,14 @@ export function viewDeck(r) {
   if (d.hint) hint.append('Did you mean ', ...d.hint.like.flatMap((t, i) => [i ? ' or ' : '', el('button', { type: 'button', class: 'chip suggest', onclick: () => addTag(t) }, t)]),
     '? ', el('button', { type: 'button', class: 'btn small ghost', onclick: () => addTag(d.hint.typed) }, `Add “${d.hint.typed}” as a new tag`));
 
+  // Fields are optional: tucked under a closed section with a one-line summary of what's there now.
+  const summary = [d.fiction, d.tone, d.structure, d.era.join('/'), d.setting.slice(0, 2).join(', ')].filter(Boolean).join(' · ');
+  const fieldsBox = el('details', { class: 'deck-more', open: fieldsOpen, ontoggle: (e) => setFieldsOpen(e.target.open) },
+    el('summary', {}, 'Fields', el('span', { class: 'muted small' }, summary ? ` · ${summary}` : ' · none set')),
+    el('div', { class: 'deck-fields' },
+      seg('fiction', 'Fiction', FICTION), seg('tone', 'Tone', TONE), seg('structure', 'Structure', STRUCTURES),
+      multi('era', 'Era', ERA_ORDER), places(),
+      el('div', { class: 'row' }, text('country', 'Country', 'UK, US'), text('languages', 'Language', 'English'))));
   const card = el('div', { class: 'card deck-card' },
     el('div', { class: 'deck-head' }, poster(s.tmdb && s.tmdb.poster, 'w185', 'poster'),
       el('div', {},
@@ -263,15 +268,12 @@ export function viewDeck(r) {
         el('div', { class: 'muted small' }, [years(s), s.format, s.network].filter(Boolean).join(' · ')),
         el('div', { class: 'small' }, s.genres.join(' · ')),
         s.tagsReviewedAt ? el('div', { class: 'muted small' }, `Reviewed ${s.tagsReviewedAt}`) : null)),
-    el('div', { class: 'deck-fields' },
-      seg('fiction', 'Fiction', FICTION), seg('tone', 'Tone', TONE), seg('structure', 'Structure', STRUCTURES),
-      multi('era', 'Era', ERA_ORDER), places(),
-      el('div', { class: 'row' }, text('country', 'Country', 'UK, US'), text('languages', 'Language', 'English'))),
     el('h3', {}, 'Tags'), tagChips,
     el('div', { class: 'row' }, addInput, el('button', { class: 'btn small', type: 'button', onclick: tryAdd }, 'Add')),
     el('datalist', { id: 'deck-tags' }, [...counts.keys()].sort().map((t) => el('option', { value: t }))),
     hint,
-    el('h3', {}, 'Suggested'), suggest);
+    el('h3', {}, 'Suggested'), suggest,
+    fieldsBox);
   swipeable(card);
   wrap.append(card, el('div', { class: 'deck-actions' },
     el('button', { class: 'btn', onclick: skipCard, title: 'Skip (←); it comes back later' }, '← Skip'),

@@ -159,7 +159,19 @@ progress { width: 100%; height: 10px; }
 .edit-dialog { border: none; border-radius: 14px; padding: 0; width: min(640px, 94vw); background: var(--card); color: var(--text); }
 .edit-dialog::backdrop { background: rgb(0 0 0 / .4); }
 .status-select { border: 1px solid var(--line); font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; max-width: 100%; field-sizing: content; }
-.show-card { cursor: pointer; }
+.show-card, .clickable { cursor: pointer; }
+.person.clickable { border: 1px solid transparent; }
+.clickable:hover { border-color: var(--accent); }
+.show-rows { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.show-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: .5rem; padding: .4rem .7rem; border-top: 1px solid var(--line); cursor: pointer; }
+.show-row:first-child { border-top: 0; }
+.show-row:hover { background: var(--bg); }
+.show-row-title { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.show-row-meta { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-btn { font: inherit; font-size: .85rem; padding: .2rem .6rem; border: 0; background: var(--card); color: var(--text); cursor: pointer; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .status-menu { position: fixed; z-index: 50; display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; padding: .3rem; max-height: calc(100vh - 8px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
 .status-menu-item { border: 1px solid transparent; font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; text-align: left; }
 .status-menu-item:hover, .status-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
@@ -305,6 +317,9 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .deck-head { display: flex; gap: .8rem; align-items: flex-start; margin-bottom: .6rem; }
 .deck-head .poster { width: 72px; height: auto; flex: none; }
 .deck-head h2 { margin: 0 0 .15rem; font-size: 1.2rem; }
+.deck-more { margin: .8rem 0 0; }
+.deck-more > summary { cursor: pointer; font-weight: 600; padding: .3rem 0; }
+.deck-more[open] > summary { margin-bottom: .45rem; }
 .deck-fields { display: grid; gap: .45rem; margin-bottom: .8rem; }
 .deck-field { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .3rem .4rem; border-radius: 8px; }
 .deck-field.blank { background: var(--yellow-bg); }
@@ -317,3 +332,13 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .deck-actions { display: flex; justify-content: space-between; gap: .5rem; margin: .8rem 0 .3rem; position: sticky; bottom: .5rem; }
 .deck-actions .btn { flex: 1; padding: .7rem; font-size: 1rem; }
 .center { text-align: center; }
+
+/* Grabbable scroll handle (fastscroll.js). Appears while scrolling long pages; drag to jump. */
+.fastscroll { position: fixed; right: 0; bottom: 8px; width: 40px; z-index: 6; pointer-events: none; }
+.fastscroll-thumb { position: absolute; top: 0; right: 0; width: 40px; height: 48px; opacity: 0; transition: opacity .25s; touch-action: none; cursor: grab; }
+.fastscroll-thumb::before { content: ''; position: absolute; top: 4px; bottom: 4px; right: 4px; width: 8px; border-radius: 999px; background: var(--accent); opacity: .75; transition: width .15s; }
+.fastscroll.on .fastscroll-thumb { opacity: 1; pointer-events: auto; }
+.fastscroll.dragging .fastscroll-thumb { cursor: grabbing; }
+.fastscroll.dragging .fastscroll-thumb::before { width: 12px; opacity: 1; }
+.fastscroll-bubble { position: absolute; right: 52px; transform: translateY(-50%); min-width: 2.6rem; padding: .35rem .7rem; border-radius: 10px;
+  background: var(--accent); color: var(--card); font-weight: 700; font-size: 1.15rem; text-align: center; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }

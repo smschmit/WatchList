@@ -16,6 +16,7 @@ import { viewStatuses } from './views/statuses.js';
 import { viewFill } from './views/fill.js';
 import { viewTags } from './views/tags.js';
 import { startCloud } from './cloud.js';
+import { startFastScroll } from './fastscroll.js';
 
 setViews({ browse: viewBrowse, list: viewList, show: viewShow, title: viewTitle, actor: viewActor, actors: viewActors,
   add: viewAdd, account: viewAccount, link: viewLink, updates: viewUpdates, statuses: viewStatuses, fill: viewFill, tags: viewTags });
@@ -42,4 +43,5 @@ document.getElementById('search').addEventListener('input', (e) => {
   }, 250);
 });
 render();
+startFastScroll();
 startCloud();

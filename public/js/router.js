@@ -26,6 +26,14 @@ export function filtersFrom(params) {
   return out;
 }
 export const scrollPos = new Map();
+// Per-page memory of how much was expanded ("Show more", "All 120 tags"), keyed by the URL like scrollPos,
+// so Back, and re-renders after an edit, bring a long list back to the same length and the scroll lands where it was.
+const pageMem = new Map();
+export function recall(key, fallback) {
+  const v = pageMem.get(`${location.hash}\u0000${key}`);
+  return v === undefined ? fallback : v;
+}
+export function remember(key, value) { pageMem.set(`${location.hash}\u0000${key}`, value); }
 export let lastHash = location.hash;
 // Call after changing the URL with history.replaceState/pushState, so scroll memory stays right.
 export function syncLastHash() { lastHash = location.hash; }

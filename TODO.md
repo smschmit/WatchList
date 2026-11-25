@@ -4,9 +4,9 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 
 ## Next up
 
-- [ ] **Try the Updates page on real data.** Merge the branch, let Netlify deploy, run one check, and look over the results. So far it has only been tested against made-up TMDB answers.
-- [ ] **Link the remaining TV shows to TMDB** (☰ → TMDB → Link titles). Unlinked shows can't be checked or recommended from.
-- [ ] **Work through the first "Show status to review" list.** Expect a long list: 214 shows had no Show status.
+- [x] **Try the Updates page on real data.** Done.
+- [x] **Link the remaining TV shows to TMDB.** Almost all done; a few left (Account → TMDB → Link titles).
+- [x] **Work through the first "Show status to review" list.** Done.
 
 - [ ] **Plan: make Updates checks faster.** Finished shows are now always checked (about 310 more shows per run), so a full check is slow. Ideas to weigh, not decided:
   - Check ended/canceled Finished shows less often (e.g. once a month) instead of every run.
@@ -16,10 +16,10 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 
 ## Fields and tags (next steps)
 
-- [ ] **Deploy, then run Fill from TMDB:** **Try 10 first**, look at a few show pages, then fill the rest. Needs the Netlify deploy (the TMDB proxy now allows keyword lookups). Tested on 99 of your shows: Setting came from Wikidata for 42%, TMDB keywords 16%, nothing 43%; Era from Wikidata 8%, keywords 19%, a Present day guess 60%, nothing 13%; Tone from keywords 13%, genres 12%, nothing 74%.
+- [ ] **Fill from TMDB: fill the rest.** Try 10 looked fine; next, run **Fill N shows** (Account → TMDB → Fill from TMDB). Tested on 99 of your shows: Setting came from Wikidata for 42%, TMDB keywords 16%, nothing 43%; Era from Wikidata 8%, keywords 19%, a Present day guess 60%, nothing 13%; Tone from keywords 13%, genres 12%, nothing 74%.
 - [ ] **Tag cleanup in this order:** merge spellings → remove genre repeats → move Fiction/Tone tags → answer the ambiguous ones → remove setting, era and origin tags (after the fill) → one-offs.
-- [ ] **Tag Deck:** work through the shows with no or one-off tags first. Check Era where it says "guess", and fill Tone (TMDB rarely has it).
-- [ ] Later: **Tag Mode**. Pick one tag and swipe through shows that might fit it; right adds the tag, left skips.
+- [x] **Tag Deck felt like too much (v0.6.1):** shows now come in random order (unreviewed first), and Fiction / Tone / Era / Setting etc. are folded into a closed **Fields** section, so a card is mostly tags. Check whether that's enough, or whether Tag Mode replaces it.
+- [ ] **Tag Mode (next).** Pick one tag and swipe through shows that might fit it; right adds the tag, left skips. Likely closer to what you want than the deck. To decide: how candidates are found (TMDB keywords, shows similar to ones already tagged, genre), and whether "no" is remembered.
 
 ## Show images (spoiler-safe)
 
@@ -46,7 +46,7 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 
 ### Still open
 
-- [ ] **Try it on real data** after deploy, and check whether the top-6 backdrops spoil anything on shows you're mid-way through. If they do, the fallback is poster only before unlock.
+- [x] **Try it on real data.** Images look good.
 - [ ] Decide whether the sheet export (`apps-script/`) should include a Spoilers column. Left out for now.
 - [ ] Stills use one image per episode (what the season lookup returns). More per episode would need `/tv/{id}/season/{n}/episode/{e}/images`, one call per episode.
 
@@ -84,7 +84,7 @@ Show where each title is streaming, renting or for sale, and answer the main que
 
 ### Build order
 
-- [x] **1. Show page line, live only (v0.7.0).** Proxy allows `/{tv|movie}/{id}/watch/providers` and `/watch/providers/{tv|movie}`; `public/js/watch.js` shows Stream / Free / Rent or buy on show and title pages (US), cached on the device for a day; plans and Amazon/Apple/Roku channels folded into one service; JustWatch credit on the block, Account page and README. A service in both Free and Stream is listed under Free only.
+- [x] **1. Show page line, live only (v0.7.3).** Proxy allows `/{tv|movie}/{id}/watch/providers` and `/watch/providers/{tv|movie}`; `public/js/watch.js` shows Stream / Free / Rent or buy on show and title pages (US), cached on the device for a day; plans and Amazon/Apple/Roku channels folded into one service; JustWatch credit on the block, Account page and README. A service in both Free and Stream is listed under Free only.
   - [ ] Try it on real shows after deploy; check the folding (live-TV services like YouTube TV, TBS, Spectrum also show under Stream, which step 2's My services highlighting should make less noisy).
 - [ ] **2. Region and My services.** Account section with the provider picker; show page highlights yours.
 - [ ] **3. Stored snapshot, bulk check, browse categories.** `show.watch`, `state.providers`, Check where to watch, Where to watch and On my services categories.

@@ -3,6 +3,7 @@ import { el } from '../util.js';
 import { state } from '../state.js';
 import { CATS, counts } from '../categories.js';
 import { emptyState, chipLink } from '../ui.js';
+import { recall, remember } from '../router.js';
 
 export function viewBrowse() {
   if (!state.shows.length) return emptyState();
@@ -16,15 +17,17 @@ export function viewBrowse() {
         el('p', { class: 'muted small' }, 'Heart actors from a show\'s cast or an actor\'s page and they show up here.')));
       continue;
     }
-    const shown = cat.top ? entries.slice(0, cat.top) : entries;
+    const expanded = recall('expanded', []);
+    const shown = cat.top && !expanded.includes(cat.key) ? entries.slice(0, cat.top) : entries;
     const sec = el('section', { class: 'cat card' },
       el('h2', {}, cat.label, cat.key === 'status' ? el('a', { class: 'h2-link edit-only', href: '#/statuses' }, 'Edit options') : null,
         cat.key === 'tag' ? el('a', { class: 'h2-link edit-only', href: '#/tags' }, 'Clean up') : null),
       el('div', { class: 'chips' }, shown.map(([v, n]) => chipLink(cat.key, v, n))));
-    if (cat.top && entries.length > cat.top) {
+    if (shown.length < entries.length) {
       const more = el('button', { class: 'btn small', onclick: () => {
         sec.querySelector('.chips').replaceChildren(...entries.map(([v, n]) => chipLink(cat.key, v, n)));
         more.remove();
+        remember('expanded', [...recall('expanded', []), cat.key]);
       } }, `All ${entries.length} ${cat.label.toLowerCase()}`);
       sec.append(more);
     }
