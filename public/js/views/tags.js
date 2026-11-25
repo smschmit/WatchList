@@ -3,7 +3,7 @@
 import { el, toast } from '../util.js';
 import { state, readOnly, save, canEdit } from '../state.js';
 import { fieldOf, setField, isSourced } from '../shows.js';
-import { listHash } from '../router.js';
+import { listHash, recall, remember } from '../router.js';
 import { classifyTag, duplicateGroups, similarTags, tagKey } from '../tagrules.js';
 import { linkedShows } from '../fill.js';
 import { viewDeck } from './deck.js';
@@ -190,10 +190,10 @@ export function viewTags(r) {
   const oneOffs = ones.map(([t]) => t).filter((t) => !keep[t]).sort((a, b) => a.localeCompare(b));
   const oneList = el('ul', { class: 'tag-rows' });
   let shown = 0;
-  const more = el('button', { class: 'btn small', onclick: () => page() }, 'Show more');
+  const more = el('button', { class: 'btn small', onclick: () => { page(shown + 40); remember('oneOffs', shown); } }, 'Show more');
   const others = new Map([...counts].filter(([, n]) => n > 1));
-  function page() {
-    for (const t of oneOffs.slice(shown, shown + 40)) {
+  function page(upTo) {
+    for (const t of oneOffs.slice(shown, upTo)) {
       const s = state.shows.find((x) => x.tags.includes(t));
       const like = similarTags(t, others, 2);
       oneList.append(el('li', {}, el('b', {}, t), ' ', s ? el('a', { class: 'muted small', href: `#/show/${encodeURIComponent(s.id)}` }, s.title) : null, ' ',
@@ -201,10 +201,10 @@ export function viewTags(r) {
         el('button', { class: 'btn small ghost', onclick: () => keepTag(t) }, 'Keep'),
         el('button', { class: 'btn small ghost danger', onclick: () => change(`Deleted “${t}”`, () => removeTag(t)) }, 'Delete')));
     }
-    shown += 40;
+    shown = upTo;
     more.hidden = shown >= oneOffs.length;
   }
-  page();
+  page(recall('oneOffs', 40));
   wrap.append(section(`Used once (${oneOffs.length})`, `Merge into a similar tag, keep, or delete. Kept ones stop showing here (${Object.keys(keep).length} kept).`, oneList, more));
   return wrap;
 }

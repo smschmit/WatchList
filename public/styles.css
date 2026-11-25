@@ -162,6 +162,16 @@ progress { width: 100%; height: 10px; }
 .show-card, .clickable { cursor: pointer; }
 .person.clickable { border: 1px solid transparent; }
 .clickable:hover { border-color: var(--accent); }
+.show-rows { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.show-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: .5rem; padding: .4rem .7rem; border-top: 1px solid var(--line); cursor: pointer; }
+.show-row:first-child { border-top: 0; }
+.show-row:hover { background: var(--bg); }
+.show-row-title { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.show-row-meta { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-btn { font: inherit; font-size: .85rem; padding: .2rem .6rem; border: 0; background: var(--card); color: var(--text); cursor: pointer; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .status-menu { position: fixed; z-index: 50; display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; padding: .3rem; max-height: calc(100vh - 8px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
 .status-menu-item { border: 1px solid transparent; font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; text-align: left; }
 .status-menu-item:hover, .status-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
