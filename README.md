@@ -8,6 +8,7 @@ A small installable web app for browsing a TV and movie watch list by any column
 - **Combine filters**: from a list, **+ Filter** adds any other column. Different columns narrow the list (AND); several values in the same column widen it (OR). Sort by title, year, total time, episode length or seasons. Search titles and notes from the top bar. Every filtered view is a link you can bookmark.
 - **Status options** (Account → Status options, or **Edit options** next to My status on Browse): add statuses, rename them (every show with that status follows), pick a color from 10, and reorder by dragging or with the arrows. The order is used in every status menu and on the browse page. A status still in use can't be removed until those shows are changed.
 - **Show page**: all the details, quick status / want / recommend pickers, notes, **Edit details** for every research column, and the cast from TMDB.
+- **Soundtrack**: a show's page has a Soundtrack card. **Find the official soundtrack** checks Wikidata (the title's listed soundtrack albums with a Spotify ID, exact but only for popular titles) and Spotify search (albums and playlists for "title soundtrack", ranked so official releases come first: the show's name plus soundtrack words, a network or label, a release year that fits the show; tributes, covers, karaoke and piano versions are dropped). Pick one and it's saved on the show as an **Open in Spotify** button; **Change** or **Remove** later. You can also paste any Spotify album or playlist link. Viewers see the saved link, or a Spotify search link if there isn't one.
 - **Images**: every title linked to TMDB shows a strip of its main key art (text-free backdrops). TV shows also have **Episode stills**, hidden until you turn on the show's **Show spoilers** switch, then listed one season at a time (a season loads when you open it) with only "S2 · E4" under each. Statuses marked **Turns on spoilers** in Status options (Finished, Rewatching and Dropped to start) switch it on when you pick them; nothing switches it off except you.
 - **Favorite actors**: tap ♡ on anyone in a show's cast. Their filmography is saved with them, so **Favorite actors** works as a browse category ("shows on my list with Jennifer Saunders").
 - **Actor page**: photo, bio, a note on why you like them, and their full filmography with what's already on your list marked. **+ Add** puts a title on your list with the details filled in from TMDB (status Want to Watch, source "Actor: name"). Talk shows and appearances as themself are hidden unless you ask for them.
@@ -55,15 +56,21 @@ To re-import after changing the sheet: export the tab's values to `data/sheet-ex
    - `SUPABASE_URL`: the project URL
    - `SUPABASE_KEY`: the publishable key
    - `OWNER_EMAIL`: your sign-in email
-   - `SHEET_SCRIPT_URL` and `SHEET_SCRIPT_SECRET`: from step 4
+   - `SHEET_SCRIPT_URL` and `SHEET_SCRIPT_SECRET`: from step 5
+   - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (optional): from step 4
 5. Redeploy.
 
-### 4. Google Sheet export (optional)
+### 4. Spotify (optional, for Find the official soundtrack)
+1. Sign in at developer.spotify.com → Dashboard → **Create app**. Any name; redirect URI `https://localhost` (not used); tick **Web API**.
+2. Copy the app's **Client ID** and **Client secret** into Netlify as `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`, and redeploy.
+3. The app only searches Spotify's public catalog (no Spotify sign-in). Without these, the Soundtrack card still offers Wikidata matches, a Spotify search link and paste-a-link.
+
+### 5. Google Sheet export (optional)
 1. Open the spreadsheet → Extensions → Apps Script. Replace the code with `apps-script/Code.gs`.
 2. Set `SECRET` to a long random string (the same value goes in Netlify as `SHEET_SCRIPT_SECRET`).
 3. Deploy → New deployment → Web app, Execute as **Me**, Who has access **Anyone**. Authorize it, and copy the web app URL into Netlify as `SHEET_SCRIPT_URL`.
 
-### 5. First run
+### 6. First run
 1. Open the site → ☰ → sign in.
 2. **Import backup…** → pick `data/seed.json`. It syncs to Supabase.
 3. ☰ → TMDB → **Link titles** → **Match**. Pick the unsure ones as you go; the rest can wait.
@@ -84,13 +91,15 @@ TMDB lookups go through the Netlify function, which doesn't run under a plain fi
   - `router.js`: hash routes and rendering; `ui.js`: shared pieces (show cards, status menu, TMDB search)
   - `tmdb.js`: TMDB lookups and caching; `images.js`: backdrops, Show spoilers switch and episode stills; `library.js`: changes that come from TMDB (link, fill in, add, favorite actors)
   - `sources.js`: turns TMDB details/keywords and Wikidata answers into Fiction, Tone, Setting, Era (pure functions); `wikidata.js`: Wikidata queries (straight from the browser; query.wikidata.org allows it); `fill.js`: the Fill from TMDB run
+  - `soundtrack.js`: Soundtrack card, Wikidata + Spotify lookups and the ranking that puts official soundtracks first
   - `tagrules.js`: which tags belong in fields, duplicate spellings, "did you mean"; `facts.js`: TMDB show status kept apart from your label
   - `views/`: one file per page; `cloud.js`: sign-in, sync and sharing (adapted from MedsApp)
 - `public/config.js`: Supabase project URL, publishable key, owner email
 - `public/sw.js`: offline cache (bump `CACHE` with `APP_VERSION` in `js/version.js` when you change files, and add any new file to `ASSETS`)
 - `netlify/functions/tmdb.mjs`: TMDB proxy (keeps the token secret; signed-in users only; only the lookups the app uses, including keywords)
+- `netlify/functions/spotify.mjs`: Spotify catalog search for soundtracks (keeps the client secret; signed-in users only)
 - `netlify/functions/sheet-export.mjs`: sends the list to the Apps Script (owner only)
-- `netlify/lib/auth.mjs`: checks the Supabase sign-in for both functions
+- `netlify/lib/auth.mjs`: checks the Supabase sign-in for the functions
 - `apps-script/Code.gs`: writes the export into the spreadsheet
 - `supabase/setup.sql`: tables and access rules
 - `data/seed.json`: your list as imported from the sheet (not published on the site)

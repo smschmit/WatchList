@@ -8,6 +8,7 @@ import { stars } from '../categories.js';
 import { getCast, getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
+import { soundtrackSection } from '../soundtrack.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker } from '../ui.js';
 import { listHash } from '../router.js';
@@ -52,6 +53,7 @@ export function viewShow(r) {
         el('a', { class: 'btn', href: `#/tags/deck?id=${encodeURIComponent(s.id)}` }, 'Review in Tag Deck'),
         s.tmdb && s.tmdb.id && s.tmdb.type === 'tv' ? el('button', { class: 'btn', onclick: (e) => checkOne(s, e.target) }, 'Check for updates') : null,
         el('button', { class: 'btn danger', onclick: () => deleteShow(s) }, 'Delete')))));
+  wrap.append(soundtrackSection(s));
   if (images) wrap.append(images);
   wrap.append(castSection(s));
   return wrap;
