@@ -36,4 +36,9 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 
 ## Housekeeping
 
+- [ ] **Merge duplicate shows.** There's no merge today, only Delete. Plan:
+  - Find likely duplicates: entries linked to the same TMDB title, or with the same title ignoring case and punctuation (but not a movie and a series that share a name, like Limitless).
+  - Merge screen: both entries side by side; pick which value to keep where they differ (status, rating, Show status), combine tags, sources and notes, then delete the other entry with Undo.
+  - Warn on the Link page when the chosen TMDB title is already linked to another entry on the list.
+  - Current duplicates to fix by hand meanwhile: *If Only* / *Si lo hubiera sabido* (same TMDB show), and *The Rehearsal Season 1* / *Season 2*.
 - [ ] When you add files under `public/js/`, list them in `ASSETS` in `public/sw.js`, and bump `CACHE` together with `APP_VERSION` in `public/js/version.js`.
