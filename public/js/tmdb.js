@@ -67,8 +67,9 @@ export function getCast(t) {
   });
 }
 export const SKIP_GENRES = [10767, 10763]; // talk shows, news
+// Key bumped to person2 when billing order and vote counts were added, so older cached copies aren't used.
 export function getPerson(pid) {
-  return cached(`person:${pid}`, async () => {
+  return cached(`person2:${pid}`, async () => {
     const [p, c] = await Promise.all([tmdb(`/person/${pid}`), tmdb(`/person/${pid}/combined_credits`)]);
     const seen = new Map();
     for (const x of c.cast || []) {
@@ -78,16 +79,35 @@ export function getPerson(pid) {
       const date = x.first_air_date || x.release_date || '';
       const item = seen.get(k) || {
         id: x.id, type, title: x.name || x.title, year: date ? Number(date.slice(0, 4)) : null, poster: x.poster_path,
-        character: '', episodes: 0, popularity: x.popularity || 0,
+        character: '', episodes: 0, popularity: x.popularity || 0, voteCount: x.vote_count || 0, order: null,
         appearance: SKIP_GENRES.some((g) => (x.genre_ids || []).includes(g)) || /\b(self|himself|herself|themselves)\b/i.test(x.character || ''),
       };
       if (x.character && !item.character.includes(x.character)) item.character = [item.character, x.character].filter(Boolean).join(' / ');
       item.episodes += x.episode_count || 0;
+      if (typeof x.order === 'number' && (item.order === null || x.order < item.order)) item.order = x.order;
       seen.set(k, item);
     }
     return { id: p.id, name: p.name, profile: p.profile_path, bio: p.biography || '', known: p.known_for_department || '',
       credits: [...seen.values()].sort((a, b) => (b.year || 0) - (a.year || 0)) };
   });
+}
+
+// How big a part was, from what combined_credits gives: episode count for TV, billing order for movies.
+// TV: 2+ episodes is recurring, 1 is a guest spot. Movies: billed 1-3 is a lead, 4-8 supporting, lower a small role.
+export const RECURRING_EPISODES = 2;
+export function roleTier(c) {
+  if (c.type === 'tv') return c.episodes >= RECURRING_EPISODES ? 'Recurring' : c.episodes === 1 ? 'Guest' : '';
+  if (typeof c.order !== 'number') return '';
+  return c.order <= 2 ? 'Lead' : c.order <= 7 ? 'Supporting' : 'Small role';
+}
+export const isMajorRole = (c) => ['Recurring', 'Lead', 'Supporting'].includes(roleTier(c));
+// "Known for" score: how big the part was times how well known the title is (log of TMDB's vote count,
+// which tracks lasting reach better than popularity, which is what's trending this week).
+// TV weight grows with episodes and tops out at 10, so a long soap doesn't outrank a famous show.
+export function knownScore(c) {
+  const weight = c.type === 'tv' ? Math.min(1, (c.episodes || 0) / 10)
+    : typeof c.order !== 'number' ? 0.25 : c.order <= 2 ? 1 : c.order <= 7 ? 0.6 : 0.25;
+  return weight * Math.log10(1 + (c.voteCount || 0));
 }
 
 export async function searchTmdb(query, type) {

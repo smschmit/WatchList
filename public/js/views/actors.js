@@ -3,7 +3,7 @@ import { el, toast, today } from '../util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from '../state.js';
 import { favNamesFor } from '../categories.js';
 import { go, listHash, recall, remember, restoreScroll } from '../router.js';
-import { getPerson } from '../tmdb.js';
+import { getPerson, roleTier, isMajorRole, knownScore } from '../tmdb.js';
 import { addFromTmdb } from '../library.js';
 import { recordView } from '../recent.js';
 import { pinTitle } from '../pagetitle.js';
@@ -45,15 +45,25 @@ export function viewActor(r) {
     let onlyMissing = recall('onlyMissing', false);
     let showTv = recall('showTv', true);
     let showMovies = recall('showMovies', true);
+    let onlyMajor = recall('onlyMajor', false);
+    let sortBy = recall('sortBy', 'known');
     const listBox = el('div', { class: 'credit-list' });
+    const sortSelect = el('select', { 'aria-label': 'Sort filmography', onchange: (e) => { sortBy = e.target.value; remember('sortBy', sortBy); fill(); } },
+      el('option', { value: 'known', selected: sortBy === 'known' }, 'Known for'),
+      el('option', { value: 'newest', selected: sortBy === 'newest' }, 'Newest'));
     const controls = el('div', { class: 'row filter-bar' },
+      sortSelect,
+      el('label', { class: 'inline', title: 'TV shows with 2 or more episodes, and movies where they were billed in the top 8' },
+        el('input', { type: 'checkbox', checked: onlyMajor, onchange: (e) => { onlyMajor = e.target.checked; remember('onlyMajor', onlyMajor); fill(); } }), ' Major roles only'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showTv, onchange: (e) => { showTv = e.target.checked; remember('showTv', showTv); fill(); } }), ' TV shows'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showMovies, onchange: (e) => { showMovies = e.target.checked; remember('showMovies', showMovies); fill(); } }), ' Movies'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: onlyMissing, onchange: (e) => { onlyMissing = e.target.checked; remember('onlyMissing', onlyMissing); fill(); } }), ' Only ones not on my list'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showAll, onchange: (e) => { showAll = e.target.checked; remember('showAll', showAll); fill(); } }), ' Include talk shows and appearances as themself'));
     function fill() {
       const items = p.credits.filter((c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c))
-        && (c.type === 'tv' ? showTv : showMovies));
+        && (c.type === 'tv' ? showTv : showMovies) && (!onlyMajor || isMajorRole(c)));
+      // credits arrive newest first; ties in the Known for score keep that order.
+      if (sortBy === 'known') items.sort((a, b) => knownScore(b) - knownScore(a));
       listBox.replaceChildren(...items.map(creditRow));
       if (!items.length) listBox.append(el('p', { class: 'muted' }, 'Nothing to show.'));
     }
@@ -70,7 +80,8 @@ export function viewActor(r) {
       return el('div', { class: `credit clickable ${mine ? 'mine' : ''}`, onclick: cardClick(href) }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
         el('div', { class: 'credit-body' },
           el('div', {}, el('a', { class: 'credit-title', href }, el('b', {}, c.title)), ` ${c.year || ''} · ${c.type === 'tv' ? 'TV' : 'Movie'}`),
-          el('div', { class: 'muted small' }, [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · ')),
+          el('div', { class: 'muted small' }, roleTier(c) ? el('span', { class: `role-tag role-${roleTier(c) === 'Guest' || roleTier(c) === 'Small role' ? 'minor' : 'major'}` }, roleTier(c)) : null,
+            [c.character, c.episodes ? `${c.episodes} ep` : ''].filter(Boolean).join(' · ')),
           favLine(c, { skip: p.name })),
         action);
     }
