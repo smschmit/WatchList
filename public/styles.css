@@ -187,6 +187,11 @@ progress { width: 100%; height: 10px; }
 .show-row:hover { background: var(--bg); }
 .show-row-title { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .show-row-meta { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The full list can be 1,200+ cards: let the browser skip laying out the ones off screen. Heights are estimates until a card
+   has been seen, so Back and redraws restore by item, not by pixel (router.js). The size is the content box, without padding
+   and border: rows are 55px in all (41 + 14), cards 90–170px on a phone, about 108 on average (87 + 21). */
+.list-view .show-card { content-visibility: auto; contain-intrinsic-size: auto 87px; }
+.list-view .show-row { content-visibility: auto; contain-intrinsic-size: auto 41px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg-btn { font: inherit; font-size: .85rem; padding: .2rem .6rem; border: 0; background: var(--card); color: var(--text); cursor: pointer; }
 .seg-btn + .seg-btn { border-left: 1px solid var(--line); }

@@ -71,11 +71,50 @@ export function goBack() {
 // so the browser clamps the scroll; they call restoreScroll() once their content is in.
 let pendingScroll = null;
 export function restoreScroll() {
-  if (pendingScroll && pendingScroll.hash === location.hash) window.scrollTo(0, pendingScroll.y);
+  if (pendingScroll && pendingScroll.hash === location.hash) scrollToSpot(pendingScroll);
   pendingScroll = null;
 }
+// A scroll position: the pixel offset, plus (on pages whose items carry data-anchor) which item was at the top
+// of the screen and how far past it. Long lists skip laying out cards off screen, so their heights are estimates
+// and a pixel offset can land on a different show after a redraw; the item is what Back returns to.
+const topInset = () => { const bar = document.querySelector('.topbar'); return bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0; };
+function currentSpot() {
+  const spot = { y: window.scrollY };
+  const items = document.querySelectorAll('#main [data-anchor]');
+  if (!items.length) return spot;
+  const line = topInset();
+  // Items run top to bottom, so binary-search for the first one still showing below the top bar.
+  let lo = 0, hi = items.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (items[mid].getBoundingClientRect().bottom > line) hi = mid; else lo = mid + 1; }
+  const top = items[lo].getBoundingClientRect().top;
+  return { ...spot, anchor: items[lo].dataset.anchor, offset: top - line };
+}
+function scrollToSpot(spot) {
+  if (spot && spot.anchor) {
+    const item = document.querySelector(`#main [data-anchor="${CSS.escape(spot.anchor)}"]`);
+    if (item) {
+      const place = () => {
+        const off = item.getBoundingClientRect().top - topInset() - spot.offset;
+        if (Math.abs(off) >= 1) window.scrollTo(0, window.scrollY + off);
+      };
+      place();
+      // Cards just above the screen get laid out for real after the jump and can push the item down; put it back
+      // once they have (a few frames; Safari has no scroll anchoring to do this for us). Stops if you start scrolling.
+      const y = () => Math.round(window.scrollY);
+      let frames = 4, last = y();
+      const again = () => requestAnimationFrame(() => {
+        if (y() !== last || !item.isConnected) return;
+        place(); last = y();
+        if (--frames) again();
+      });
+      again();
+      return;
+    }
+  }
+  window.scrollTo(0, spot ? spot.y : 0);
+}
 window.addEventListener('hashchange', () => {
-  scrollPos.set(lastHash, window.scrollY);
+  scrollPos.set(lastHash, currentSpot());
   lastHash = location.hash;
   // Back/Forward land on a history entry that's already stamped; a link click makes a new, unstamped one.
   // A new visit starts at the top even if this page was seen before; only Back/Forward restore the old spot.
@@ -83,14 +122,15 @@ window.addEventListener('hashchange', () => {
   if (fresh) scrollPos.delete(location.hash);
   stamp();
   render();
-  const y = scrollPos.get(location.hash) || 0;
-  pendingScroll = y ? { hash: location.hash, y } : null;
-  window.scrollTo(0, y);
+  const spot = scrollPos.get(location.hash);
+  pendingScroll = spot && (spot.y || spot.anchor) ? { hash: location.hash, ...spot } : null;
+  scrollToSpot(spot);
 });
 
 // ---------- Render ----------
 // Page name -> function(route) returning the page's element. Filled in by main.js.
 let views = {};
+let renderedHash = null;
 export function setViews(v) { views = v; }
 export function render() {
   rebuildStatusColors();
@@ -102,7 +142,11 @@ export function render() {
   const search = document.getElementById('search');
   if (document.activeElement !== search) search.value = r.name === 'list' ? r.params.get('q') || '' : '';
   const main = document.getElementById('main');
+  // Redrawing the same page (after an edit or a sync) keeps the same item at the top, since card heights are estimates.
+  const keep = renderedHash === location.hash ? currentSpot() : null;
   pinTitle(null); // detail pages pin their own name after this
   main.replaceChildren((views[r.name] || views.browse)(r));
+  renderedHash = location.hash;
+  if (keep && keep.anchor) scrollToSpot(keep);
   if (r.name === 'account' && window.cloud && window.cloud.renderAccount) window.cloud.renderAccount();
 }

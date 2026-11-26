@@ -1,5 +1,5 @@
 // Browse categories (one per column), filtering and sorting.
-import { norm } from './util.js';
+import { norm, uniq } from './util.js';
 import { state } from './state.js';
 import { FACT_ORDER } from './facts.js';
 import { isMovie, totalHours, fieldOf } from './shows.js';
@@ -41,7 +41,15 @@ export const statusNames = () => statusList().map((x) => x.name);
 export const SPOILER_STATUSES = ['Finished', 'Rewatching', 'Dropped'];
 export const spoilerStatusNames = () => statusList().filter((x) => x.spoilers).map((x) => x.name);
 export let statusColors = new Map(); // status name -> color key, rebuilt on render
-export function rebuildStatusColors() { statusColors = new Map(statusList().map((x) => [x.name, x.color])); }
+// The status menu's choices, worked out once per render: statusList() scans every show, and a full list draws
+// one menu per card, so building it per card was over a million steps.
+let statusChoices = null;
+export function rebuildStatusColors() {
+  const list = statusList();
+  statusColors = new Map(list.map((x) => [x.name, x.color]));
+  statusChoices = uniq(['', ...list.map((x) => x.name)]);
+}
+export const statusMenuChoices = () => statusChoices || uniq(['', ...statusNames()]);
 export function bucket(v, edges) {
   if (v == null) return '';
   for (const [max, label] of edges) if (v < max) return label;
@@ -114,10 +122,12 @@ export function counts(cat, shows) {
   for (const s of shows) for (const v of valuesOf(cat, s)) m.set(v, (m.get(v) || 0) + 1);
   if (cat.hideBlank) m.delete(BLANK);
   const entries = [...m.entries()];
-  const rank = (v) => { const i = (cat.order || []).indexOf(v); return i < 0 ? 999 : i; };
+  // Read the order once: for status it's a getter that scans every show.
+  const order = cat.order ? new Map(cat.order.map((v, i) => [v, i])) : null;
+  const rank = (v) => (order.has(v) ? order.get(v) : 999);
   entries.sort((a, b) => {
     if (a[0] === BLANK) return 1; if (b[0] === BLANK) return -1;
-    if (cat.order) return rank(a[0]) - rank(b[0]) || b[1] - a[1];
+    if (order) return rank(a[0]) - rank(b[0]) || b[1] - a[1];
     if (cat.sortByValue) return a[0].localeCompare(b[0]);
     return b[1] - a[1] || a[0].localeCompare(b[0]);
   });

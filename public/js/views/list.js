@@ -106,6 +106,7 @@ export function viewList(r) {
   const list = el('div', { class: density === 'rows' ? 'show-rows' : 'show-list' }, results.map((s) => {
     const node = item(s);
     node.dataset.jump = jumpLabel(s, sort);
+    node.dataset.anchor = s.id; // lets Back and redraws return to this show (router.js)
     return node;
   }));
   wrap.append(list);

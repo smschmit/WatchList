@@ -29,6 +29,14 @@ let lastSync = null;
 let syncing = false;
 let again = false;
 let timer = null;
+// Local saves since startup, and how many of them the last good sync included. When they match and the cloud's
+// timestamp hasn't moved, there's nothing to do, and the 650 KB copy-and-compare can be skipped.
+let edits = 1; // starts "edited" so the first sync after loading always compares
+let syncedEdits = 0;
+// Bulk jobs (Updates check, Fill from TMDB, Link) save every few shows; hold syncing until they finish
+// so the whole list isn't uploaded again and again mid-run. Saves still go to the device as usual.
+let holds = 0;
+let heldSync = false;
 
 // ---- Merge ----
 // Stable JSON (sorted keys), so the same data compares equal regardless of key order.
@@ -133,11 +141,19 @@ async function syncOwner() {
   try {
     setStatus('Syncing…');
     const uid = session.user.id;
+    const startEdits = edits;
     // The list is large, so first check whether anything changed on either side.
     const { data: meta, error: metaErr } = await client.from(TABLE).select('updated_at').eq('user_id', uid).maybeSingle();
     if (metaErr) throw metaErr;
-    const base = readBase();
-    if (meta && base && readBaseAt() === new Date(meta.updated_at).getTime() && canon(plain(state)) === canon(base)) {
+    const cloudSame = meta && readBaseAt() === new Date(meta.updated_at).getTime();
+    if (cloudSame && startEdits === syncedEdits) {
+      lastSync = Date.now();
+      setStatus('Synced');
+      return;
+    }
+    const base = cloudSame ? readBase() : null;
+    if (cloudSame && base && canon(plain(state)) === canon(base)) {
+      syncedEdits = startEdits;
       lastSync = Date.now();
       setStatus('Synced');
       return;
@@ -162,6 +178,7 @@ async function syncOwner() {
       at = now.getTime();
     }
     writeBase(finalData, at);
+    syncedEdits = startEdits;
     lastSync = Date.now();
     setStatus('Synced');
   } catch (e) {
@@ -221,6 +238,7 @@ async function decideMode() {
 }
 async function enter(newMode) {
   mode = newMode;
+  edits++; // the list may have been swapped (sign-out/in): compare in full on the next sync
   setReadOnly(mode === 'viewer');
   document.body.classList.toggle('read-only', mode === 'viewer');
   if (mode === 'viewer') {
@@ -243,6 +261,7 @@ async function enter(newMode) {
 function schedule(ms = 1500) {
   clearTimeout(timer);
   if (!session) return;
+  if (holds && mode === 'owner') { heldSync = true; return; }
   timer = setTimeout(() => (mode === 'owner' ? syncOwner() : mode === 'viewer' ? syncViewer() : connect()), ms);
 }
 
@@ -368,7 +387,10 @@ async function signOut() {
 export function startCloud() {
   window.cloud = {
     configured,
-    onLocalSave: () => { if (mode === 'owner') schedule(); },
+    onLocalSave: () => { edits++; if (mode === 'owner') schedule(); },
+    // Wrap a bulk job: no syncing while it runs, one sync after it ends (if anything asked for one).
+    hold: () => { holds++; },
+    release: () => { holds = Math.max(0, holds - 1); if (!holds && heldSync) { heldSync = false; schedule(); } },
     renderAccount: () => renderAccount(),
     // Access token for the Netlify functions (TMDB lookups, sheet export).
     token: async () => {

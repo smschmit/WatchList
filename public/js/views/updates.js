@@ -1,7 +1,7 @@
 // Updates: ask TMDB about your TV shows (manual button), then list what changed and where your
 // show status disagrees. Nothing on your list changes until you tap a button on a card.
 import { el, toast } from '../util.js';
-import { state, readOnly, save, canEdit } from '../state.js';
+import { state, readOnly, save, canEdit, bulk } from '../state.js';
 import { checkFacts, setStatus } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
 import { poster, statusSelect, cardClick, favLine } from '../ui.js';
@@ -16,7 +16,8 @@ const linkedTv = () => state.shows.filter((s) => s.tmdb && s.tmdb.id && s.tmdb.t
 // Finished shows are always checked, so a revival of something you watched to the end isn't missed.
 const worthChecking = (s) => WAITING.includes(s.status) || s.status === FINISHED || labelClass(s.showStatus) !== 'over' || !s.facts || factClass(s.facts) !== 'over';
 
-async function runCheck(list) {
+const runCheck = (list) => bulk(() => checkAll(list));
+async function checkAll(list) {
   checker = { running: true, done: 0, total: list.length, changed: 0, missing: 0, onProgress: checker && checker.onProgress };
   const progress = () => checker.onProgress && checker.onProgress();
   progress();
