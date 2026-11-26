@@ -67,9 +67,17 @@ export function getCast(t) {
   });
 }
 export const SKIP_GENRES = [10767, 10763]; // talk shows, news
-// Key bumped to person2 when billing order and vote counts were added, so older cached copies aren't used.
+// TMDB's movie and TV genre IDs (they rarely change, so they're kept here rather than fetched).
+// TV's combined genres are split so one name covers both kinds: "Sci-Fi & Fantasy" counts as Sci-Fi and Fantasy.
+const GENRES = { 28: ['Action'], 12: ['Adventure'], 16: ['Animation'], 35: ['Comedy'], 80: ['Crime'], 99: ['Documentary'],
+  18: ['Drama'], 10751: ['Family'], 14: ['Fantasy'], 36: ['History'], 27: ['Horror'], 10402: ['Music'], 9648: ['Mystery'],
+  10749: ['Romance'], 878: ['Sci-Fi'], 10770: ['TV Movie'], 53: ['Thriller'], 10752: ['War'], 37: ['Western'],
+  10759: ['Action', 'Adventure'], 10762: ['Kids'], 10763: ['News'], 10764: ['Reality'], 10765: ['Sci-Fi', 'Fantasy'],
+  10766: ['Soap'], 10767: ['Talk'], 10768: ['War', 'Politics'] };
+export const genreNames = (ids) => [...new Set((ids || []).flatMap((id) => GENRES[id] || []))];
+// Key bumped (person2: billing order and vote counts; person3: genres and rating) so older cached copies aren't used.
 export function getPerson(pid) {
-  return cached(`person2:${pid}`, async () => {
+  return cached(`person3:${pid}`, async () => {
     const [p, c] = await Promise.all([tmdb(`/person/${pid}`), tmdb(`/person/${pid}/combined_credits`)]);
     const seen = new Map();
     for (const x of c.cast || []) {
@@ -79,7 +87,8 @@ export function getPerson(pid) {
       const date = x.first_air_date || x.release_date || '';
       const item = seen.get(k) || {
         id: x.id, type, title: x.name || x.title, year: date ? Number(date.slice(0, 4)) : null, poster: x.poster_path,
-        character: '', episodes: 0, popularity: x.popularity || 0, voteCount: x.vote_count || 0, order: null,
+        character: '', episodes: 0, popularity: x.popularity || 0, voteCount: x.vote_count || 0, rating: x.vote_average || 0, order: null,
+        genres: genreNames(x.genre_ids),
         appearance: SKIP_GENRES.some((g) => (x.genre_ids || []).includes(g)) || /\b(self|himself|herself|themselves)\b/i.test(x.character || ''),
       };
       if (x.character && !item.character.includes(x.character)) item.character = [item.character, x.character].filter(Boolean).join(' / ');
