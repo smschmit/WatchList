@@ -1,6 +1,6 @@
 // Link the list to TMDB.
 import { el, toast, norm } from '../util.js';
-import { state, readOnly, save, canEdit, showById } from '../state.js';
+import { state, readOnly, save, canEdit, showById, bulk } from '../state.js';
 import { isMovie, years } from '../shows.js';
 import { go } from '../router.js';
 import { searchTmdb } from '../tmdb.js';
@@ -32,7 +32,8 @@ export async function matchOne(s) {
   if (confident) return { link: best.h };
   return { review: { showId: s.id, candidates: ranked.slice(0, 6).map((x) => x.h) } };
 }
-export async function runLinker(update) {
+export const runLinker = (update) => bulk(() => linkAll(update));
+async function linkAll(update) {
   const todo = state.shows.filter((s) => !s.tmdb);
   const review = loadReview().filter((r) => showById(r.showId) && !showById(r.showId).tmdb);
   const queued = new Set(review.map((r) => r.showId));

@@ -1,7 +1,7 @@
 // "Fill from TMDB": asks TMDB (details + keywords) and Wikidata (setting, era) about linked shows and stores the
 // answer in show.sourced. Your own values are never overwritten; Country and Language are copied in only where blank.
 import { today } from './util.js';
-import { state, save } from './state.js';
+import { state, save, bulk } from './state.js';
 import { tmdb } from './tmdb.js';
 import { fromTmdb, combine, PERIOD_TAG } from './sources.js';
 import { wikidataFor } from './wikidata.js';
@@ -25,7 +25,8 @@ export let filler = null;
 export function stopFill() { if (filler) filler.running = false; }
 
 const BATCH = 40;
-export async function runFill(list, onProgress) {
+export const runFill = (list, onProgress) => bulk(() => fillAll(list, onProgress));
+async function fillAll(list, onProgress) {
   const tally = { setting: { wikidata: 0, keywords: 0, none: 0 }, era: { wikidata: 0, keywords: 0, guess: 0, none: 0 },
     tone: { keywords: 0, genres: 0, none: 0 }, wikidataFound: 0 };
   filler = { running: true, done: 0, total: list.length, missing: 0, error: '', tally, onProgress: onProgress || (filler && filler.onProgress) };

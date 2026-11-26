@@ -2,7 +2,7 @@
 import { el, toast, uniq, norm } from './util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from './state.js';
 import { isMovie, totalHours, fmtHours, years } from './shows.js';
-import { WANT_ORDER, favNamesFor, statusNames, statusColors, defaultStatusColor } from './categories.js';
+import { WANT_ORDER, favNamesFor, statusMenuChoices, statusColors, defaultStatusColor } from './categories.js';
 import { go, listHash } from './router.js';
 import { searchTmdbPage } from './tmdb.js';
 import { toggleFavorite, setStatus } from './library.js';
@@ -29,9 +29,25 @@ export function statusSelect(s) {
       const unlocked = setStatus(s, sel.value); sel.className = `pill status-select ${statusClass(s.status)}`;
       save({ quiet: true }); toast(`${s.title}: ${s.status || 'no status'}${unlocked ? ' · spoilers on' : ''}`);
     } },
-    SELECTS.status().map((v) => el('option', { value: v, selected: v === s.status }, v || '—')));
+    el('option', { value: s.status || '', selected: true }, s.status || '—'));
+  // A full list draws one menu per card (1,200+), and building every option for each was most of the page's build time.
+  // So the menu starts with just the current status and gets the rest the first time it's touched, clicked or focused,
+  // which is before the browser's picker (or ours) opens.
+  let filled = false;
+  const fill = () => {
+    if (filled) return;
+    filled = true;
+    const cur = s.status || '';
+    const choices = SELECTS.status();
+    sel.replaceChildren(...(choices.includes(cur) ? choices : [...choices, cur]).map((v) => el('option', { value: v, selected: v === cur }, v || '—')));
+  };
+  sel.addEventListener('pointerdown', fill);
+  sel.addEventListener('touchstart', fill, { passive: true });
+  sel.addEventListener('focus', fill);
+  sel.addEventListener('keydown', fill);
   // With a mouse, open our own menu at the pointer instead of the browser's dropdown. Touch keeps the native picker.
   sel.addEventListener('mousedown', (e) => {
+    fill();
     if (e.button !== 0 || !matchMedia('(pointer: fine)').matches) return;
     e.preventDefault();
     openStatusMenu(sel, e.clientX, e.clientY);
@@ -135,7 +151,7 @@ export function setDensity(v) { try { localStorage.setItem(DENSITY_KEY, v); } ca
 
 // ---------- Show page ----------
 export const SELECTS = {
-  status: () => uniq(['', ...statusNames()]),
+  status: () => statusMenuChoices(),
   want: () => uniq(['', ...WANT_ORDER, ...state.shows.map((s) => s.want)]),
   recommend: () => uniq(['', 'Top 50', 'Yes', ...state.shows.map((s) => s.recommend)]),
 };
