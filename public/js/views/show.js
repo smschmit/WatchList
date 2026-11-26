@@ -113,10 +113,10 @@ function ratingField(s) {
   draw();
   return el('div', { class: 'field' }, 'My rating', box);
 }
-// TMDB's summary, collapsed so it doesn't push the pickers and notes down.
+// TMDB's summary, open by default; collapsible if it gets in the way.
 export function descriptionBox(s) {
   if (!s.tmdb || !s.tmdb.id) return null;
-  const box = el('details', { class: 'description', hidden: true });
+  const box = el('details', { class: 'description', open: true, hidden: true });
   getDetails(s.tmdb).then((d) => {
     if (!d.overview) return;
     box.append(el('summary', {}, 'Description'), d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null, el('p', {}, d.overview));
