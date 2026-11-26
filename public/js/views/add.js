@@ -3,7 +3,7 @@ import { el, today, toast, norm } from '../util.js';
 import { state, readOnly, normShow, save, canEdit, listShowFor } from '../state.js';
 import { go, syncLastHash } from '../router.js';
 import { tmdbPicker, titleHash, statusClass } from '../ui.js';
-import { addFromTmdb, possibleMatch, linkAndFill, removeShow } from '../library.js';
+import { addFromTmdb, possibleMatch, linkAndFill, removeShow, newShowStatus } from '../library.js';
 import { openEdit } from './show.js';
 
 const showHref = (s) => `#/show/${encodeURIComponent(s.id)}`;
@@ -56,7 +56,7 @@ export function viewAdd(r) {
     if (!name || !canEdit()) return;
     const same = state.shows.find((s) => norm(s.title) === norm(name));
     if (same && !confirm(`“${label(same)}” is already on your list. Add another?`)) return;
-    const s = normShow({ title: name, status: 'Identified', sources: [`Added in app (${today().slice(0, 7)})`], tmdb: { none: true } });
+    const s = normShow({ title: name, status: newShowStatus(), sources: [`Added in app (${today().slice(0, 7)})`], tmdb: { none: true } });
     state.shows.push(s);
     save({ quiet: true });
     go(showHref(s));
