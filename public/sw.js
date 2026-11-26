@@ -1,6 +1,6 @@
 // Offline cache. Bump CACHE together with APP_VERSION in js/version.js when shipping changes.
 // Every file the app loads must be in ASSETS, or it won't work offline.
-const CACHE = 'watchlist-v40';
+const CACHE = 'watchlist-v41';
 const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest', 'icon.svg',
   'js/categories.js',
   'js/cloud.js',
