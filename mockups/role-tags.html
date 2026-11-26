@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Role tag mockup</title>
+<style>
+.light{--bg:#f5f5f8;--card:#fff;--text:#1d1e2c;--muted:#6b6d80;--line:#e2e3ea;--accent:#3a3f8f;--accent-soft:#e6e7f6}
+.dark{--bg:#14151c;--card:#1e2029;--text:#e9e9f0;--muted:#9a9cae;--line:#2f3140;--accent:#a3a8f5;--accent-soft:#2b2e4d}
+body{margin:0;font:15px/1.4 system-ui,-apple-system,sans-serif;background:#ddd}
+.grid{display:grid;grid-template-columns:repeat(3,1fr)}
+.theme{background:var(--bg);color:var(--text);padding:16px}
+h2{font-size:13px;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.list{display:grid;gap:.4rem}
+.credit{display:flex;align-items:center;gap:.7rem;padding:.4rem .6rem;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.poster{width:34px;height:50px;border-radius:5px;background:var(--line);flex:none}
+.muted{color:var(--muted)}.small{font-size:.85rem}
+.role-tag{display:inline-block;margin-right:.4rem;border-radius:999px}
+/* before */
+.before .role-tag{padding:0 .4rem;font-size:.72rem;font-weight:600;border:1px solid var(--line)}
+.before .role-major{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+/* now */
+.now .role-tag{padding:0 .35rem;font-size:.7rem;font-weight:500;border:1px solid var(--line);color:var(--muted)}
+.now .role-major{background:var(--accent-soft);border-color:transparent}
+/* option: plain text */
+.plain .role-tag{padding:0;margin-right:.25rem;font-size:.75rem;font-weight:500;border:0;color:var(--muted)}
+.plain .role-tag::after{content:" ·"}
+.plain .role-minor{opacity:.75}
+</style></head><body>
+<div id="out"></div>
+<script>
+const rows=[["Severance","2022 · TV","Recurring","Mark S. · 19 ep","major"],["Dune","2021 · Movie","Supporting","Gurney Halleck","major"],["The Bear","2023 · TV","Guest","Pete · 1 ep","minor"],["Big Night","1996 · Movie","Lead","Secondo","major"],["Ocean's Eleven","2001 · Movie","Small role","Bouncer","minor"]];
+const variants=[["before","Before"],["now","Now (pushed)"],["plain","Option: text only"]];
+const card=r=>`<div class="credit"><div class="poster"></div><div><div><b>${r[0]}</b> ${r[1]}</div><div class="muted small"><span class="role-tag role-${r[4]}">${r[2]}</span>${r[3]}</div></div></div>`;
+document.getElementById('out').innerHTML=["light","dark"].map(t=>`<div class="grid">${variants.map(([c,l])=>`<div class="theme ${t} ${c}"><h2>${l} · ${t}</h2><div class="list">${rows.map(card).join('')}</div></div>`).join('')}</div>`).join('');
+</script></body></html>
