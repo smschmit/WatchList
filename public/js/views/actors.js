@@ -1,5 +1,5 @@
 // One actor's page, and the favorite actors page.
-import { el, toast, today } from '../util.js';
+import { el, toast, today, norm } from '../util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from '../state.js';
 import { favNamesFor } from '../categories.js';
 import { go, listHash, recall, remember, restoreScroll } from '../router.js';
@@ -47,11 +47,19 @@ export function viewActor(r) {
     let showMovies = recall('showMovies', true);
     let onlyMajor = recall('onlyMajor', false);
     let sortBy = recall('sortBy', 'newest');
+    let find = recall('find', '');
     const listBox = el('div', { class: 'credit-list' });
+    const findCount = el('span', { class: 'muted small' });
+    let findTimer;
+    const findInput = el('input', { type: 'search', class: 'find-input', placeholder: 'Find in filmography', 'aria-label': 'Find in filmography',
+      autocomplete: 'off', value: find,
+      oninput: () => { clearTimeout(findTimer); findTimer = setTimeout(() => { find = findInput.value; remember('find', find); fill(); }, 150); },
+      onkeydown: (e) => { if (e.key === 'Escape' && findInput.value) { findInput.value = ''; find = ''; remember('find', ''); fill(); } } });
     const sortSelect = el('select', { 'aria-label': 'Sort filmography', onchange: (e) => { sortBy = e.target.value; remember('sortBy', sortBy); fill(); } },
       el('option', { value: 'newest', selected: sortBy === 'newest' }, 'Newest'),
       el('option', { value: 'known', selected: sortBy === 'known' }, 'Known for'));
     const controls = el('div', { class: 'row filter-bar' },
+      el('div', { class: 'find-row' }, findInput, findCount),
       sortSelect,
       el('label', { class: 'inline', title: 'TV shows with 2 or more episodes, and movies where they were billed in the top 8' },
         el('input', { type: 'checkbox', checked: onlyMajor, onchange: (e) => { onlyMajor = e.target.checked; remember('onlyMajor', onlyMajor); fill(); } }), ' Major roles only'),
@@ -59,13 +67,24 @@ export function viewActor(r) {
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showMovies, onchange: (e) => { showMovies = e.target.checked; remember('showMovies', showMovies); fill(); } }), ' Movies'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: onlyMissing, onchange: (e) => { onlyMissing = e.target.checked; remember('onlyMissing', onlyMissing); fill(); } }), ' Only ones not on my list'),
       el('label', { class: 'inline' }, el('input', { type: 'checkbox', checked: showAll, onchange: (e) => { showAll = e.target.checked; remember('showAll', showAll); fill(); } }), ' Include talk shows and appearances as themself'));
+    // Every word typed has to appear in the title, year, character or type (ignoring case and accents).
+    const words = () => norm(find).split(/\s+/).filter(Boolean);
+    const matches = (c, ws) => { const t = norm(`${c.title} ${c.year || ''} ${c.character || ''} ${c.type === 'tv' ? 'tv' : 'movie'}`); return ws.every((w) => t.includes(w)); };
     function fill() {
-      const items = p.credits.filter((c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c))
-        && (c.type === 'tv' ? showTv : showMovies) && (!onlyMajor || isMajorRole(c)));
+      const ws = words();
+      const shown = (c) => (showAll || !c.appearance) && (!onlyMissing || !listShowFor(c))
+        && (c.type === 'tv' ? showTv : showMovies) && (!onlyMajor || isMajorRole(c));
+      const items = p.credits.filter((c) => shown(c) && (!ws.length || matches(c, ws)));
       // credits arrive newest first; ties in the Known for score keep that order.
       if (sortBy === 'known') items.sort((a, b) => knownScore(b) - knownScore(a));
       listBox.replaceChildren(...items.map(creditRow));
-      if (!items.length) listBox.append(el('p', { class: 'muted' }, 'Nothing to show.'));
+      findCount.textContent = ws.length ? `${items.length} of ${p.credits.filter(shown).length}` : '';
+      if (!items.length) {
+        // A match hidden by the checkboxes above is easy to miss, so say so.
+        const hidden = ws.length ? p.credits.filter((c) => !shown(c) && matches(c, ws)).length : 0;
+        listBox.append(el('p', { class: 'muted' }, ws.length ? `No matches for “${find.trim()}”.` : 'Nothing to show.',
+          hidden ? ` ${hidden} more ${hidden === 1 ? 'is' : 'are'} hidden by the options above.` : ''));
+      }
     }
     function creditRow(c) {
       const mine = listShowFor(c);
