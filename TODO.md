@@ -141,6 +141,24 @@ A season → episode guide on TV show pages, and where you are in each show. (So
 
 Songs you noticed in an episode, kept in a top-level `state.songs` list (merges item by item already). No free source maps songs to episodes (TMDB has none; Tunefind and WhatSong have no public API), so they'd be entered by hand with a song search (iTunes Search API, free, untested from here). Shazam has no API either; the workable route is Shazam's "My Shazam Tracks" playlist synced to Spotify or Apple Music, read through their APIs, with each song's added time matched to what you were watching. Revisit later.
 
+## Actor page: "Seen" and "Plan to see" buttons
+
+The usual question on an actor page is "which of these have I seen?" It can be answered today (Filters → My list → tick Finished, Rewatching…), but that takes several taps every time, and "Use as default" applies one filter set to every actor page. The answer needs to be one tap, on the actor page, above the filmography.
+
+### Proposed
+
+- [ ] **Two preset buttons above the filmography:** **Seen** and **Plan to see**, next to the Filters toggle. Each one sets the My list group to a fixed set of statuses (replacing whatever is picked there; other groups such as Type and Role stay as they are). Tap the lit button again to clear it. Only one can be on at a time.
+- [ ] **Counts on the buttons** ("Seen 7", "Plan to see 3") so the answer shows before tapping, using the same counting as the chips.
+- [ ] **Keep the filter panel honest:** when a preset is on, the matching My list chips show as picked, and editing those chips by hand turns the preset button off.
+- [ ] **Works with "Use as default":** a preset saved as the default (e.g. every actor page opens on Seen) is just the saved My list values, so nothing new is stored.
+- [ ] Bump `APP_VERSION` and `CACHE`; check with a Playwright run.
+
+### Open decisions
+
+- [ ] **Which statuses count as Seen?** Suggested: Finished, Rewatching, Dropped (watched at least some of it), maybe Watching and Some. Should it follow the status options in Account (like the "Turns on spoilers" flag) so a renamed status keeps working?
+- [ ] **Which count as Plan to see?** Suggested: Want to Watch, Restart Planned, Waiting on Release and Now It's Ready. Identified and Recommended probably not.
+- [ ] Should the same two buttons appear on browse lists filtered by a favorite actor?
+
 ## Search for actors
 
 Today the only way to reach an actor is through a show's cast, and the Actors page is a dead end with no favorites. The proxy already allows `/search/person`, and `#/actor/:id` already works for any TMDB person, so no server change is needed.
