@@ -77,6 +77,10 @@ export function restoreScroll() {
 window.addEventListener('hashchange', () => {
   scrollPos.set(lastHash, window.scrollY);
   lastHash = location.hash;
+  // Back/Forward land on a history entry that's already stamped; a link click makes a new, unstamped one.
+  // A new visit starts at the top even if this page was seen before; only Back/Forward restore the old spot.
+  const fresh = !history.state || typeof history.state.depth !== 'number';
+  if (fresh) scrollPos.delete(location.hash);
   stamp();
   render();
   const y = scrollPos.get(location.hash) || 0;
