@@ -141,6 +141,40 @@ A season → episode guide on TV show pages, and where you are in each show. (So
 
 Songs you noticed in an episode, kept in a top-level `state.songs` list (merges item by item already). No free source maps songs to episodes (TMDB has none; Tunefind and WhatSong have no public API), so they'd be entered by hand with a song search (iTunes Search API, free, untested from here). Shazam has no API either; the workable route is Shazam's "My Shazam Tracks" playlist synced to Spotify or Apple Music, read through their APIs, with each song's added time matched to what you were watching. Revisit later.
 
+## One-click "Seen it": add a title as Finished
+
+Logging a movie you've already watched takes two steps today: **+ Add** (lands as Identified), then open the status menu and pick Finished. Most movies you add after the fact are already seen, so this should be one tap.
+
+### Proposed design
+
+- **A second button beside every + Add:** **✓ Seen it**, styled as a plain (non-primary) button so + Add stays the main action. It adds the title from TMDB with My status = Finished in one tap.
+- **Where it appears:** the three places that already have + Add:
+  - Add page search results (`hitActions` in `public/js/views/add.js`). Also beside **Add anyway** when a possible match is shown.
+  - Title page (`viewTitle` in `public/js/views/title.js`), next to **+ Add to my list**.
+  - Actor filmography rows (`creditRow` in `public/js/views/actors.js`), the main place you'd tick off old movies.
+- **How it works:** `addFromTmdb(t, { status })` already lets `extra` override the default status, so no new add path is needed. Add a small helper in `public/js/library.js`, e.g. `addAsFinished(t, extra)`, that:
+  - picks the status name: `Finished` if it's in the status list, otherwise the first status flagged "Turns on spoilers", otherwise falls back to a plain add (so renaming Finished doesn't break it);
+  - sets `spoilers: true` for TV shows, matching what `setStatus` does when you pick Finished by hand (`addFromTmdb` skips `setStatus`, so this has to be done here);
+  - keeps the `sources` the caller passes (e.g. `Actor: <name>`).
+- **Feedback:** toast "Added <title> as Finished" with **Undo** (removes it, same as the Add page's undo today). Then the row redraws as "On your list · Finished", like any other add.
+- **Already on the list:** no change. Rows for titles you already have show the status pill or status menu, where Finished is one pick away.
+- **Read-only viewers:** hidden, same as + Add.
+- **Hand-added titles ("Not on TMDB?"):** left out; that path opens the edit form anyway, where status is set.
+
+### Build order
+
+1. [ ] `addAsFinished` helper in `library.js` (status choice, spoilers for TV, sources passthrough).
+2. [ ] Buttons on the Add page results, title page and actor filmography rows, with the Undo toast.
+3. [ ] Check phone width: actor rows already hold the + Add button; two buttons may need to stack or shrink to icons (✓ / +).
+4. [ ] README line, bump `CACHE` in `public/sw.js` and `APP_VERSION` in `public/js/version.js`.
+
+### Open decisions
+
+- [ ] **Label:** "✓ Seen it" (recommended, reads naturally for movies and TV) or "✓ Finished" (matches the status name exactly).
+- [ ] **TV shows too, or movies only?** Recommended: both. For TV it also turns spoilers on, which is what Finished does anyway. Movies-only would keep TV rows less crowded.
+- [ ] **Remember when you watched it?** There's no watched-date field today. Out of scope unless you want one; it would be a new show field and a CSV/sheet column.
+- [ ] **Long-press / second option for Dropped or Some?** Probably not; keeps it one button.
+
 ## Actor page: "Seen" and "Plan to see" buttons
 
 The usual question on an actor page is "which of these have I seen?" It can be answered today (Filters → My list → tick Finished, Rewatching…), but that takes several taps every time, and "Use as default" applies one filter set to every actor page. The answer needs to be one tap, on the actor page, above the filmography.
