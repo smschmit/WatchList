@@ -141,6 +141,24 @@ A season → episode guide on TV show pages, and where you are in each show. (So
 
 Songs you noticed in an episode, kept in a top-level `state.songs` list (merges item by item already). No free source maps songs to episodes (TMDB has none; Tunefind and WhatSong have no public API), so they'd be entered by hand with a song search (iTunes Search API, free, untested from here). Shazam has no API either; the workable route is Shazam's "My Shazam Tracks" playlist synced to Spotify or Apple Music, read through their APIs, with each song's added time matched to what you were watching. Revisit later.
 
+## Search for actors
+
+Today the only way to reach an actor is through a show's cast, and the Actors page is a dead end with no favorites. The proxy already allows `/search/person`, and `#/actor/:id` already works for any TMDB person, so no server change is needed.
+
+### Decided
+
+- **Acting only:** show only people whose TMDB `known_for_department` is Acting. The actor page reads cast credits only (`getPerson` uses `c.cast`), so directors and writers would open on an empty filmography.
+- **Lives on the Actors page**, not the Add page's type selector (Add is edit-only and about putting titles on the list).
+
+### Plan
+
+- [ ] **Search box on the Actors page** (`#/actors?q=…`), shown even with no favorites. Typing filters your favorites by name instantly; TMDB results appear below under "On TMDB", leaving out people already in favorites. Query kept in the URL with `replaceState` + `syncLastHash` (same as the Add page), so Back returns to the results.
+- [ ] **`searchPeoplePage(query, page)` in `public/js/tmdb.js`:** calls `/search/person`, reuses the in-memory `searchCache` with a `person:` key, drops non-Acting results, maps to `{ id, name, profile, knownFor: [up to 3 titles], popularity }` (TMDB's `known_for` comes with the search, no extra calls).
+- [ ] **Person result card:** face, name, "Known for: A, B, C" with titles on your list highlighted. Tap opens `#/actor/:id`; ♡ reuses `heartBtn` from `views/actors.js`.
+- [ ] **Shared search loop:** pull the debounce, stale-request guard and Show more paging out of `tmdbPicker` (`public/js/ui.js`) into a small helper used by both title and people search, instead of copying ~40 lines.
+- [ ] Test with `window.tmdbMock` and a Playwright run; bump `APP_VERSION` and `CACHE`.
+- Note: filtering favorites works for everyone; TMDB results need sign-in, like all lookups.
+
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
 
 - [ ] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand.
