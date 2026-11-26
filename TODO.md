@@ -232,6 +232,12 @@ Don't reuse the one-document design: images can't live in the JSON, the note cou
 - Sync only changed notes; on a same-note conflict keep both versions and show it. Images never conflict (new image, new name).
 - Decide first: single editor or shared editing (shared needs real-time sync, a much bigger build); image volume (free plan has 1 GB, so shrink photos before upload); a Markdown + images export from the start.
 
+## Brainstorm
+
+Loose ideas, not planned or decided.
+
+- **Shorter hearted-actor lists on long-running shows.** A show like Law & Order can have lots of hearted actors who each turned up for one episode, so the card gets very long. Idea: if more than 5 hearted actors would show, hide the ones who were only in 1 episode (maybe behind a "+N more" link so they're still reachable).
+
 ## Housekeeping
 
 - [ ] When you add files under `public/js/`, list them in `ASSETS` in `public/sw.js`, and bump `CACHE` together with `APP_VERSION` in `public/js/version.js`.
