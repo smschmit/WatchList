@@ -179,7 +179,7 @@ The one-document model and the Supabase row are fine for one editor plus viewers
 ### Plan
 
 - [ ] **1. Measure (now).** Log the size of each localStorage key, and how much of the list is TMDB-derived (`facts`, `sourced`, actor `credits`) versus what you typed.
-- [ ] **2. Make storage failures loud (now).** If the "last synced" copy can't be saved, show an error and pause syncing instead of merging against a stale copy.
+- [x] **2. Make storage failures loud (v0.7.21).** When storage is full, saves drop the TMDB cache (and the owner's unused viewer copy) and retry. The TMDB cache is capped at ~1 MB. The "last synced" copy is also kept in memory, so merges stay correct for the rest of the visit, and the sync status shows "⚠ Storage full" with the MB used. Syncing doesn't pause: when the device can't save, the cloud is the only durable copy. Still open: after a reload the merge uses whatever older copy is on the device.
 - [ ] **3. Move device storage to IndexedDB (next few weeks, its own release).** No practical 5 MB cap, saves in the background, stores objects without converting to text. Moves: the list, the "last synced" copy, the viewer copy, the TMDB cache. Small settings (cards/rows) stay in localStorage. Mostly `state.js`, `cloud.js`, `tmdb.js`; startup has to wait for the data before drawing the list. Supabase doesn't change.
   - One-time copy on first load: copy localStorage → IndexedDB, verify, only then clear the old keys; on any failure keep using the old data.
   - Before updating: sync every device so Supabase holds a current copy. After: open the app on each device over the next few days to confirm the copy worked.

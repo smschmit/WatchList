@@ -16,6 +16,20 @@ export function el(tag, attrs = {}, ...kids) {
   for (const c of kids.flat(Infinity)) if (c != null && c !== false) e.append(c.nodeType ? c : String(c));
   return e;
 }
+// Save a string to localStorage. If the browser says storage is full, drop data that can be fetched again
+// (the TMDB cache, plus any keys the caller names) and try once more. Returns false if it still didn't fit.
+export const TMDB_CACHE_KEY = 'watchlist:tmdb-cache';
+export function storeSet(key, str, alsoFree = []) {
+  try { localStorage.setItem(key, str); return true; } catch { /* likely full; free space below */ }
+  try { [TMDB_CACHE_KEY, ...alsoFree].forEach((k) => localStorage.removeItem(k)); } catch {}
+  try { localStorage.setItem(key, str); return true; } catch { return false; }
+}
+// Roughly how much this site keeps in localStorage, in bytes (strings are stored as UTF-16).
+export function storageUsed() {
+  let n = 0;
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch {}
+  return n;
+}
 let toastTimer;
 export function toast(msg, action) {
   const t = document.getElementById('toast');
