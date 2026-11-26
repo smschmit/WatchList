@@ -68,6 +68,12 @@ export function save({ quiet = false } = {}) {
   if (window.cloud) window.cloud.onLocalSave();
   if (!quiet) renderer();
 }
+// Run a bulk job (many saves in a row) with cloud syncing held until it ends; see hold/release in cloud.js.
+export async function bulk(fn) {
+  const c = window.cloud;
+  if (c && c.hold) c.hold();
+  try { return await fn(); } finally { if (c && c.release) c.release(); }
+}
 export function canEdit() {
   if (readOnly) { toast('View only.'); return false; }
   return true;

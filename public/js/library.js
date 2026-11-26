@@ -93,8 +93,8 @@ export function setStatus(s, value) {
   s.spoilers = true;
   return true;
 }
-// Status for titles added from TMDB: Want to Watch (you chose to add it), or Identified if that status was removed.
-export const newShowStatus = () => (statusNames().includes('Want to Watch') ? 'Want to Watch' : 'Identified');
+// Status for newly added titles: Identified, or Want to Watch if Identified was removed from the status list.
+export const newShowStatus = () => (statusNames().includes('Identified') ? 'Identified' : 'Want to Watch');
 export function removeShow(s) {
   const i = state.shows.indexOf(s);
   if (i < 0) return;
