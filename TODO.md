@@ -48,12 +48,12 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 
 - [x] **Try it on real data.** Images look good.
 - [ ] Decide whether the sheet export (`apps-script/`) should include a Spoilers column. Left out for now.
+- [ ] **More pictures of actors.** Pull extra headshots from TMDB's `/person/{id}/images` for actor pages (proxy needs that path added to `ALLOWED` in `netlify/functions/tmdb.mjs`).
 - [ ] Stills use one image per episode (what the season lookup returns). More per episode would need `/tv/{id}/season/{n}/episode/{e}/images`, one call per episode.
 
 ### Maybe later
 
 - A "Spoilers on" filter in the browse view.
-- Extra actor headshots from `/person/{id}/images`.
 - Track a current episode per show and unlock stills up to that point.
 
 Other image sources if TMDB falls short: TVmaze (free, no key, character photos, CC BY-SA attribution) and Fanart.tv (free key, logos and art).
