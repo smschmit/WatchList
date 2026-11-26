@@ -1,8 +1,11 @@
 // TMDB lookups through the Netlify function in netlify/functions/tmdb.mjs, and turning TMDB data into the list's columns.
 import { factsFromDetails, initialLabel } from './facts.js';
 import { regionName, langName } from './sources.js';
+import { TMDB_CACHE_KEY } from './util.js';
 
-export const CACHE_KEY = 'watchlist:tmdb-cache';
+export const CACHE_KEY = TMDB_CACHE_KEY;
+// Keep the saved cache under ~1 MB so it can't crowd out the list itself (all of localStorage is ~5 MB).
+const CACHE_MAX_CHARS = 500_000;
 
 export const cfg = window.WATCHLIST_CONFIG || {};
 
@@ -27,7 +30,15 @@ export function cacheSet(key, v) {
     all[key] = { t: Date.now(), v };
     const keys = Object.keys(all);
     if (keys.length > 120) keys.sort((a, b) => all[a].t - all[b].t).slice(0, keys.length - 120).forEach((k) => delete all[k]);
-    localStorage.setItem(CACHE_KEY, JSON.stringify(all));
+    let json = JSON.stringify(all);
+    if (json.length > CACHE_MAX_CHARS) {
+      // Drop the oldest answers until it fits.
+      const sizes = Object.keys(all).sort((a, b) => all[a].t - all[b].t).map((k) => [k, JSON.stringify(all[k]).length]);
+      let total = json.length;
+      for (const [k, n] of sizes) { if (total <= CACHE_MAX_CHARS) break; delete all[k]; total -= n; }
+      json = JSON.stringify(all);
+    }
+    localStorage.setItem(CACHE_KEY, json);
   } catch {}
 }
 export async function tmdb(path, params = {}) {

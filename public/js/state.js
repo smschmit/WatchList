@@ -1,11 +1,12 @@
 // The watch list itself: loading, normalizing, saving, and looking things up.
 // Data lives on the device first (localStorage) and syncs to Supabase when signed in (cloud.js).
-import { arr, toNum, newId, toast } from './util.js';
+import { arr, toNum, newId, toast, storeSet } from './util.js';
 
 export const STATE_KEY = 'watchlist:state';
 
 export let state; // set by main.js at startup
 export let readOnly = false;
+export let localSaveOk = true; // whether the last save to this device worked
 // Other modules read `state` and `readOnly` directly (live bindings) and change them only through these.
 export function setState(s) { state = s; }
 export function setReadOnly(v) { readOnly = v; }
@@ -61,7 +62,10 @@ export function loadState() {
   try { return normalizeState(JSON.parse(localStorage.getItem(STATE_KEY) || 'null')); } catch { return normalizeState(null); }
 }
 export function writeLocal() {
-  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) { toast('Could not save on this device: storage is full.'); }
+  const ok = storeSet(STATE_KEY, JSON.stringify(state));
+  localSaveOk = ok;
+  if (!ok) toast('Could not save on this device: storage is full.');
+  return ok;
 }
 export function save({ quiet = false } = {}) {
   writeLocal();

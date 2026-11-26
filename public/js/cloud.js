@@ -7,8 +7,8 @@
 //
 // Viewer: someone the owner shared with by email. They see the owner's list read-only.
 
-import { el, toast } from './util.js';
-import { state, setState, setReadOnly, normalizeState, loadState, writeLocal } from './state.js';
+import { el, toast, storeSet, storageUsed } from './util.js';
+import { state, setState, setReadOnly, normalizeState, loadState, writeLocal, localSaveOk } from './state.js';
 import { render } from './router.js';
 import { RECENT_KEY } from './recent.js';
 
@@ -97,9 +97,20 @@ function mergeUnknown(base, local, remote) {
 window.watchMerge = merge; // exposed for testing
 
 const plain = (s) => JSON.parse(JSON.stringify(s));
-const readBase = () => { try { return JSON.parse(localStorage.getItem(BASE_KEY) || 'null'); } catch { return null; } };
-const writeBase = (v, at) => { try { localStorage.setItem(BASE_KEY, JSON.stringify(v)); localStorage.setItem(BASE_KEY + ':at', String(at || 0)); } catch {} };
-const readBaseAt = () => { try { return Number(localStorage.getItem(BASE_KEY + ':at') || 0); } catch { return 0; } };
+// The last synced copy is also kept in memory, so merges during this visit stay correct even if the
+// device copy can't be saved. If it can't, storageFull makes that visible instead of failing silently.
+let memBase = null; // { v, at }
+let storageFull = false;
+const readBase = () => { if (memBase) return memBase.v; try { return JSON.parse(localStorage.getItem(BASE_KEY) || 'null'); } catch { return null; } };
+const readBaseAt = () => { if (memBase) return memBase.at; try { return Number(localStorage.getItem(BASE_KEY + ':at') || 0); } catch { return 0; } };
+function writeBase(v, at) {
+  memBase = { v, at: at || 0 };
+  // The viewer copy is only used when viewing someone else's list, so the owner can give its space up.
+  const ok = storeSet(BASE_KEY, JSON.stringify(v), [VIEW_KEY]) && storeSet(BASE_KEY + ':at', String(at || 0));
+  if (!ok && !storageFull) toast("This device's storage is full. Your list is synced, but keep this page open until it's fixed.");
+  storageFull = !ok;
+  return ok;
+}
 
 const errText = (e) => (e && (e.message || e.error_description || e.hint)) || String(e);
 
@@ -117,7 +128,7 @@ function renderStatus() {
   const top = document.getElementById('sync-status');
   if (top) {
     top.hidden = !session;
-    top.textContent = status.error ? '⚠ Not synced' : mode === 'viewer' ? 'View only' : lastSync ? `Synced ${ago(lastSync)}` : status.text;
+    top.textContent = status.error ? (storageFull ? '⚠ Storage full' : '⚠ Not synced') : mode === 'viewer' ? 'View only' : lastSync ? `Synced ${ago(lastSync)}` : status.text;
     top.classList.toggle('error', status.error);
   }
   const line = document.getElementById('account-status');
@@ -177,10 +188,12 @@ async function syncOwner() {
       if (upErr) throw upErr;
       at = now.getTime();
     }
-    writeBase(finalData, at);
+    const baseOk = writeBase(finalData, at);
+    storageFull = !(baseOk && localSaveOk);
     syncedEdits = startEdits;
     lastSync = Date.now();
-    setStatus('Synced');
+    if (storageFull) setStatus(`Synced to the cloud, but this device's storage is full (about ${(storageUsed() / 1e6).toFixed(1)} MB used), so it can't keep its own copy. Reopening the app may bring back old changes. Stay online and keep the app open.`, true);
+    else setStatus('Synced');
   } catch (e) {
     console.error('Sync failed', e);
     setStatus(navigator.onLine === false ? 'Offline, will sync later' : `Sync failed: ${errText(e)}`, true);
@@ -413,6 +426,7 @@ export function startCloud() {
     current = uid;
     // Defer: Supabase recommends not awaiting other calls inside this callback.
     setTimeout(async () => {
+      memBase = null; storageFull = false;
       if (!s) {
         try { localStorage.removeItem(BASE_KEY); localStorage.removeItem(BASE_KEY + ':at'); localStorage.removeItem(VIEW_KEY); localStorage.removeItem(RECENT_KEY); } catch {}
         setReadOnly(false);
