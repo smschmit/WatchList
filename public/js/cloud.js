@@ -163,22 +163,24 @@ async function syncOwner() {
       return;
     }
     const base = cloudSame ? readBase() : null;
-    if (cloudSame && base && canon(plain(state)) === canon(base)) {
-      syncedEdits = startEdits;
-      lastSync = Date.now();
-      setStatus('Synced');
-      return;
+    let finalData, row = null;
+    if (cloudSame && base) {
+      // The cloud still holds exactly the last synced copy, so merging would just give back this device's list.
+      // Skip downloading and comparing the whole list (slow on a phone after every add) and upload it.
+      finalData = plain(state);
+    } else {
+      const res = await client.from(TABLE).select('data, updated_at').eq('user_id', uid).maybeSingle();
+      if (res.error) throw res.error;
+      row = res.data;
+      const local = plain(state);
+      const merged = row && row.data ? merge(readBase(), local, row.data) : local;
+      if (canon(merged) !== canon(local)) {
+        setState(normalizeState(merged));
+        writeLocal();
+        render();
+      }
+      finalData = plain(state);
     }
-    const { data: row, error } = await client.from(TABLE).select('data, updated_at').eq('user_id', uid).maybeSingle();
-    if (error) throw error;
-    const local = plain(state);
-    const merged = row && row.data ? merge(readBase(), local, row.data) : local;
-    if (canon(merged) !== canon(local)) {
-      setState(normalizeState(merged));
-      writeLocal();
-      render();
-    }
-    const finalData = plain(state);
     let at = row ? new Date(row.updated_at).getTime() : 0;
     if (!row || canon(finalData) !== canon(row.data)) {
       const now = new Date();
