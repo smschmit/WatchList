@@ -86,7 +86,7 @@ export function viewAccount() {
       el('a', { class: 'btn edit-only', href: '#/watch' }, 'Services and check')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'Tags'),
       el('p', { class: 'small' }, `${new Set(state.shows.flatMap((s) => s.tags)).size} distinct tags. Merge duplicates, move tags into fields, and review shows one card at a time.`),
-      el('div', { class: 'btn-row' }, el('a', { class: 'btn', href: '#/tags' }, 'Tag cleanup'), el('a', { class: 'btn', href: '#/tags/deck' }, 'Tag Deck'))),
+      el('div', { class: 'btn-row' }, el('a', { class: 'btn', href: '#/tags' }, 'Tag cleanup'), el('a', { class: 'btn', href: '#/tags/deck' }, 'Tag Deck'), el('a', { class: 'btn', href: '#/tags/mode' }, 'Tag Mode'))),
     el('section', { class: 'card' }, el('h2', {}, 'Export and backup'),
       el('div', { class: 'btn-row' },
         el('span', { class: 'edit-only' }, sheetBtn),

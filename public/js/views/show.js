@@ -9,6 +9,7 @@ import { getCast, getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
 import { episodesFor } from '../episodes.js';
+import { collectionsLine } from './collections.js';
 import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { pinTitle } from '../pagetitle.js';
@@ -52,7 +53,7 @@ export function viewShow(r) {
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       factsLine(s),
       whereToWatch(s.tmdb, s),
-      chips('genre', s.genres), sourcedFields(s), chips('tag', s.tags),
+      chips('genre', s.genres), sourcedFields(s), chips('tag', s.tags), collectionsLine(s),
       descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),
       el('label', { class: 'field wide' }, 'Notes', notes),

@@ -5,6 +5,7 @@ import { state, readOnly } from '../state.js';
 import { CATS, catByKey, RANGE, counts, SORTS, applyFilters } from '../categories.js';
 import { go, listHash, filtersFrom, render } from '../router.js';
 import { emptyState, statusClass, showCard, showRow, getDensity, setDensity } from '../ui.js';
+import { saveListAsCollection } from './collections.js';
 
 export function viewList(r) {
   if (!state.shows.length) return emptyState();
@@ -24,6 +25,10 @@ export function viewList(r) {
   const addBtn = el('button', { class: 'btn small', onclick: () => togglePicker() }, '+ Filter');
   bar.append(addBtn);
   if (filters.length || q) bar.append(el('a', { class: 'btn small ghost', href: '#/list' }, 'Clear'));
+  if ((filters.length || q) && !readOnly) {
+    const query = listHash(filters, q, '').replace(/^#\/list\??/, '');
+    bar.append(el('button', { class: 'btn small ghost', title: 'Keep this filter as a named collection', onclick: () => saveListAsCollection(query) }, 'Save as collection'));
+  }
   const sel = el('select', { 'aria-label': 'Sort', onchange: () => go(listHash(filters, q, sel.value)) },
     Object.entries(SORTS).map(([k, [label]]) => el('option', { value: k, selected: k === sort }, label)));
   const density = getDensity();
@@ -34,7 +39,8 @@ export function viewList(r) {
   wrap.append(bar);
   if (!readOnly && results.length && (filters.length || q)) {
     wrap.append(el('p', { class: 'small deck-link' }, el('a', { href: `#/tags/deck?${r.params.toString().replace(/(^|&)sort=[^&]*/, '')}` },
-      `Review tags for ${results.length === 1 ? 'this show' : `these ${results.length} shows`}`)));
+      `Review tags for ${results.length === 1 ? 'this show' : `these ${results.length} shows`}`),
+      filters.length === 1 && filters[0].cat === 'tag' && !filters[0].not ? [' · ', el('a', { href: `#/tags/mode?${new URLSearchParams({ tag: filters[0].value })}` }, `Find more shows for ${filters[0].value}`)] : null));
   }
 
   // Filter picker: pick several values (in any columns), then Apply. Tap once to include, again to exclude, again to clear.

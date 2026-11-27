@@ -4,12 +4,15 @@ import { state } from '../state.js';
 import { CATS, counts } from '../categories.js';
 import { emptyState, chipLink } from '../ui.js';
 import { recall, remember } from '../router.js';
+import { collectionsStrip } from './collections.js';
 
 export function viewBrowse() {
   if (!state.shows.length) return emptyState();
   const wrap = el('div', { class: 'browse' });
   wrap.append(el('p', { class: 'muted' }, `${state.shows.length} titles. Tap any value to see those shows; add more filters from there.`,
     el('span', { class: 'edit-only' }, ' ', el('a', { href: '#/tags/deck' }, `Tag Deck (${state.shows.filter((s) => s.tagsReviewedAt).length} of ${state.shows.length} reviewed)`))));
+  const strip = collectionsStrip();
+  if (strip) wrap.append(strip);
   for (const cat of CATS) {
     if (cat.hideIf && cat.hideIf()) continue;
     const entries = counts(cat, state.shows);

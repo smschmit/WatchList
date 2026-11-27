@@ -7,6 +7,7 @@ import { listHash, recall, remember } from '../router.js';
 import { classifyTag, duplicateGroups, similarTags, tagKey } from '../tagrules.js';
 import { linkedShows } from '../fill.js';
 import { viewDeck } from './deck.js';
+import { viewTagMode } from './tagmode.js';
 
 // ---------- Changes (also used by the deck) ----------
 const SNAP_KEYS = ['tags', 'genres', 'country', 'languages', 'fiction', 'tone', 'era', 'setting'];
@@ -71,6 +72,7 @@ export function moveToField(s, field, value) {
 // ---------- Page ----------
 export function viewTags(r) {
   if (r.id === 'deck') return viewDeck(r);
+  if (r.id === 'mode') return viewTagMode(r);
   const wrap = el('div', { class: 'tags-page' }, el('h1', {}, 'Tag cleanup'));
   if (readOnly) return wrap.append(el('p', { class: 'muted' }, 'View only.')), wrap;
   const counts = tagCounts();
@@ -78,7 +80,7 @@ export function viewTags(r) {
   const reviewed = state.shows.filter((s) => s.tagsReviewedAt).length;
   const ones = [...counts].filter(([, n]) => n === 1);
   wrap.append(el('p', { class: 'muted' }, `${counts.size} distinct tags, ${ones.length} used once. ${reviewed} of ${state.shows.length} shows reviewed in the Tag Deck. `,
-    el('a', { href: '#/tags/deck' }, 'Open the Tag Deck')));
+    el('a', { href: '#/tags/deck' }, 'Open the Tag Deck'), ' · ', el('a', { href: '#/tags/mode' }, 'Tag Mode'), ' (one tag, many shows)'));
   const tagLink = (t, n) => el('a', { class: 'chip', href: listHash([{ cat: 'tag', value: t }]) }, t, n != null ? el('span', { class: 'count' }, n) : null);
 
   // 1. Duplicates
