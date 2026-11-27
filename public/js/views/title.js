@@ -3,7 +3,7 @@ import { el, toast } from '../util.js';
 import { readOnly, normShow, listShowFor } from '../state.js';
 import { go, syncLastHash, render } from '../router.js';
 import { getCast, getDetails, detailsToShow } from '../tmdb.js';
-import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
+import { addFromTmdb, addAsFinished, possibleMatch, linkAndFill, removeShow } from '../library.js';
 import { describeNext } from '../facts.js';
 import { poster, metaLine, personTile, favLine } from '../ui.js';
 import { backdropCard } from '../images.js';
@@ -27,12 +27,21 @@ export function viewTitle(r) {
   getDetails(t).then(async (d) => {
     const info = normShow(await detailsToShow(t, d));
     if (location.hash === here) recordView({ kind: 'title', type: t.type, id: t.id, name: info.title, year: info.year, poster: d.poster_path || null });
-    const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: async () => {
-      addBtn.disabled = true;
-      const s = await addFromTmdb(t, src ? { sources: [src] } : {});
-      if (s) { toast(`Added ${s.title}`); history.replaceState(history.state, '', `#/show/${encodeURIComponent(s.id)}`); syncLastHash(); render(); }
-      else addBtn.disabled = false;
-    } }, '+ Add to my list');
+    const addWith = (fn) => async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const s = await fn(t, src ? { sources: [src] } : {});
+      if (!s) { btn.disabled = false; return; }
+      const back = location.hash;
+      history.replaceState(history.state, '', `#/show/${encodeURIComponent(s.id)}`); syncLastHash(); render();
+      toast(`Added ${s.title} as ${s.status}`, { label: 'Undo', run: () => {
+        removeShow(s);
+        if (location.hash === `#/show/${encodeURIComponent(s.id)}`) { history.replaceState(history.state, '', back); syncLastHash(); }
+        render();
+      } });
+    };
+    const addBtn = readOnly ? null : el('button', { class: 'btn primary', onclick: addWith(addFromTmdb) }, '+ Add to my list');
+    const seenBtn = readOnly ? null : el('button', { class: 'btn', title: 'Add it as already watched (Finished)', onclick: addWith(addAsFinished) }, '✓ Seen it');
     // An unlinked show with the same title and year is probably this one: offer to link it instead of adding a copy.
     const match = readOnly ? null : possibleMatch({ ...t, title: info.title, original: d.original_name || d.original_title, year: info.year });
     let matchNote = null;
@@ -60,7 +69,7 @@ export function viewTitle(r) {
       d.tagline ? el('p', { class: 'small muted' }, el('i', {}, d.tagline)) : null,
       d.overview ? el('p', {}, d.overview) : null,
       matchNote || el('p', { class: 'muted small' }, 'Not on your list yet.'),
-      el('div', { class: 'btn-row' }, addBtn,
+      el('div', { class: 'btn-row' }, addBtn, seenBtn,
         el('a', { class: 'btn ghost', href: `https://www.themoviedb.org/${t.type}/${t.id}`, target: '_blank', rel: 'noopener' }, 'View on TMDB'))));
     if (location.hash === here) pinTitle(head.querySelector('h1'));
   }).catch((e) => head.replaceChildren(el('p', { class: 'muted' }, e.message)));

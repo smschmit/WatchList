@@ -153,6 +153,24 @@ export async function searchTmdbPage(query, type, page = 1) {
   return v;
 }
 
+// One page of people. Only actors (TMDB's known_for_department Acting): actor pages list cast credits only, so a
+// director or writer would open on an empty filmography. Shares the in-memory search cache.
+export async function searchPeoplePage(query, page = 1) {
+  const key = `person:${page}:${query.trim().toLowerCase()}`;
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.t < 864e5) return hit.v;
+  const d = await tmdb('/search/person', { query, include_adult: 'false', ...(page > 1 ? { page: String(page) } : {}) });
+  const hits = (d.results || []).filter((x) => x.known_for_department === 'Acting').map((x) => ({
+    id: x.id, name: x.name, profile: x.profile_path, popularity: x.popularity || 0,
+    knownFor: (x.known_for || []).filter((k) => k.media_type === 'tv' || k.media_type === 'movie').slice(0, 3)
+      .map((k) => ({ id: k.id, type: k.media_type, title: k.name || k.title })),
+  }));
+  const v = { hits, more: (d.page || page) < (d.total_pages || 1) };
+  searchCache.set(key, { t: Date.now(), v });
+  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  return v;
+}
+
 // Turn TMDB details into the sheet's columns.
 export { regionName, langName } from './sources.js';
 export function splitGenres(gs) {
@@ -164,8 +182,9 @@ export function splitGenres(gs) {
   }
   return out;
 }
-export function getDetails(t) {
-  return cached(`details:${t.type}:${t.id}`, () => tmdb(`/${t.type}/${t.id}`));
+// maxAge: pass a day for shows still airing, so episode counts and "next episode" stay current.
+export function getDetails(t, maxAge) {
+  return cached(`details:${t.type}:${t.id}`, () => tmdb(`/${t.type}/${t.id}`), maxAge);
 }
 // Main key art: backdrops with no text on them (iso_639_1 null), best voted first, at most 6.
 // TMDB doesn't tie backdrops to seasons, so these are the safest bet against spoilers, not a guarantee.
@@ -187,12 +206,14 @@ export function getWatchProviders(t, region) {
     return { link: r.link || '', flatrate: slim(r.flatrate), free: slim(r.free), ads: slim(r.ads), rent: slim(r.rent), buy: slim(r.buy) };
   }, 864e5);
 }
-// One still per episode of a season (what TMDB shows as the episode's picture). Only episode numbers are kept, no titles.
-export function getSeasonStills(t, n) {
-  return cached(`stills:${t.id}:${n}`, async () => {
+// Every episode of a season, slimmed to what the Episodes card shows (about 4 KB a season).
+// maxAge: a day for the current season of a show still airing, else the 7-day default.
+export function getSeasonEpisodes(t, n, maxAge) {
+  return cached(`eps:${t.id}:${n}`, async () => {
     const d = await tmdb(`/tv/${t.id}/season/${n}`);
-    return (d.episodes || []).filter((e) => e.still_path).map((e) => ({ ep: e.episode_number, path: e.still_path }));
-  });
+    return (d.episodes || []).map((e) => ({ ep: e.episode_number, name: e.name || '', overview: (e.overview || '').slice(0, 700),
+      air: e.air_date || null, runtime: e.runtime || null, still: e.still_path || null }));
+  }, maxAge);
 }
 export async function detailsToShow(t, d) {
   d = d || await getDetails(t);

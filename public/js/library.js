@@ -36,9 +36,30 @@ function syncHearts(id, on) {
     b.setAttribute('aria-pressed', String(on));
   });
 }
+// What's saved for each of a favorite actor's credits. Episodes (TV) let long-running shows hide one-episode
+// guest spots from the ♥ line.
+export function slimCredits(credits) {
+  return credits.filter((c) => !c.appearance).map(({ id, type, title, year, episodes }) => ({ id, type, title, year, ...(type === 'tv' && episodes ? { episodes } : {}) }));
+}
+// New projects: credits TMDB lists now that weren't in the saved ones, from this year or later (or with no date yet),
+// so TMDB filling in someone's back catalog doesn't count as news. Kept on the actor (a.news) until dismissed on Updates.
+// Nothing is noted the first time an actor's credits are saved.
+export function noteNewCredits(a, fresh) {
+  if (!a.credits || !a.credits.length) return [];
+  const had = new Set(a.credits.map((c) => `${c.type}:${c.id}`));
+  const dismissed = new Set(a.newsSeen || []);
+  const year = new Date().getFullYear();
+  const found = slimCredits(fresh).filter((c) => !had.has(`${c.type}:${c.id}`) && !dismissed.has(`${c.type}:${c.id}`) && (!c.year || c.year >= year));
+  if (!found.length) return [];
+  const news = a.news || [];
+  const have = new Set(news.map((c) => `${c.type}:${c.id}`));
+  a.news = [...news, ...found.filter((c) => !have.has(`${c.type}:${c.id}`)).map((c) => ({ ...c, at: today() }))];
+  return found;
+}
 export async function refreshCredits(a, { quiet = false } = {}) {
   const person = await getPerson(a.tmdbId);
-  a.credits = person.credits.filter((c) => !c.appearance).map(({ id, type, title, year }) => ({ id, type, title, year }));
+  noteNewCredits(a, person.credits);
+  a.credits = slimCredits(person.credits);
   a.creditsAt = today();
   if (person.profile) a.profile = person.profile;
   if (!quiet) save();
@@ -111,6 +132,19 @@ export async function addFromTmdb(t, extra = {}) {
   const s = normShow({ ...d, status: newShowStatus(), sources: [`Added in app (${today().slice(0, 7)})`], ...extra });
   state.shows.push(s);
   save({ quiet: true });
+  return s;
+}
+// The status for "✓ Seen it": Finished if the list has it, else the first status that turns spoilers on, else null.
+export function seenStatus() {
+  const names = statusNames();
+  return names.includes('Finished') ? 'Finished' : spoilerStatusNames()[0] || null;
+}
+// One-tap add for something you've already watched: added from TMDB as Finished (or its stand-in), with Show spoilers
+// on for TV, as picking Finished by hand would do. Falls back to a plain add if no status fits.
+export async function addAsFinished(t, extra = {}) {
+  const status = seenStatus();
+  const s = await addFromTmdb(t, status ? { ...extra, status } : extra);
+  if (s && status && s.status === status && !isMovie(s) && !s.spoilers && spoilerStatusNames().includes(status)) { s.spoilers = true; save({ quiet: true }); }
   return s;
 }
 

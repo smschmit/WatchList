@@ -6,6 +6,7 @@ import { checkFacts, setStatus } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
 import { poster, statusSelect, cardClick, favLine } from '../ui.js';
 import { statusNames } from '../categories.js';
+import { getProgress, epLabel, episodesBetween, nextAfter } from '../progress.js';
 
 // Kept outside the view so a check keeps going (and its progress shows) if you open a show and come back.
 let checker = null; // { running, done, total, changed, missing, onProgress }
@@ -14,7 +15,15 @@ const linkedTv = () => state.shows.filter((s) => s.tmdb && s.tmdb.id && s.tmdb.t
 // Shows you have as over, once TMDB has confirmed it, rarely change, so they're skipped unless asked
 // (revivals are the exception the checkbox is for). Everything else, including never-checked shows, is checked.
 // Finished shows are always checked, so a revival of something you watched to the end isn't missed.
-const worthChecking = (s) => WAITING.includes(s.status) || s.status === FINISHED || labelClass(s.showStatus) !== 'over' || !s.facts || factClass(s.facts) !== 'over';
+// Finished shows TMDB already has as over are checked once a month rather than every run (revivals are rare, and
+// there are hundreds of them); other finished shows are checked every time.
+const MONTH = 30 * 864e5;
+const checkedWithin = (s, ms) => !!(s.facts && s.facts.checkedAt) && Date.now() - new Date(`${s.facts.checkedAt}T12:00:00`).getTime() < ms;
+const confirmedOver = (s) => !!s.facts && factClass(s.facts) === 'over';
+const worthChecking = (s) => {
+  if (s.status === FINISHED) return !confirmedOver(s) || !checkedWithin(s, MONTH);
+  return WAITING.includes(s.status) || labelClass(s.showStatus) !== 'over' || !confirmedOver(s);
+};
 
 const runCheck = (list) => bulk(() => checkAll(list));
 async function checkAll(list) {
@@ -38,10 +47,21 @@ async function checkAll(list) {
       progress();
     }
   }
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all(Array.from({ length: 6 }, worker)); // TMDB allows ~40 requests a second; 6 at once stays well under
   checker.running = false;
   save({ quiet: true });
   progress();
+}
+
+// "4 new episodes since S3 · E8 · resume at S3 · E9", from where you are and the last check's episode counts.
+export function resumeLine(s) {
+  const p = getProgress(s);
+  const f = s.facts;
+  if (!p || !f || !f.lastSeason || !f.seasonEps) return null;
+  const n = episodesBetween(p, { season: f.lastSeason, episode: f.lastEpisode }, f.seasonEps);
+  if (!n) return null;
+  const next = nextAfter(p, f.seasonEps);
+  return `${n} new episode${n === 1 ? '' : 's'} since ${epLabel(p.season, p.episode)}${next ? ` · resume at ${epLabel(next.season, next.episode)}` : ''}`;
 }
 
 export function viewUpdates() {
@@ -69,6 +89,7 @@ export function viewUpdates() {
           el('button', { class: 'btn primary', disabled: !todo.length, onclick: () => runCheck(todo) }, `Check ${todo.length} shows`),
           el('label', { class: 'inline small' }, el('input', { type: 'checkbox', checked: includeEnded, onchange: (e) => { includeEnded = e.target.checked; renderStatus(); } }),
             ` Recheck shows TMDB already confirmed as ended or canceled (${all.length} in all)`)),
+      includeEnded ? null : el('p', { class: 'muted small' }, 'Finished shows that TMDB has as ended or canceled are rechecked once a month, in case of a revival.'),
       checker && !checker.running && checker.done
         ? el('p', { class: 'small' }, `Checked ${checker.done}: ${checker.changed} changed since the last check${checker.missing ? `, ${checker.missing} no longer on TMDB` : ''}.`)
         : null].filter(Boolean));
@@ -100,6 +121,8 @@ export function viewUpdates() {
     if (u.more) lines.push(u.more);
     if (u.conflict) lines.push(u.conflict.text);
     if (u.seasons) lines.push(`TMDB has ${u.seasons} seasons; your list says ${s.seasons}.`);
+    const where = resumeLine(s);
+    if (where && (u.ready || u.more || u.changes.length)) lines.push(where);
     const href = `#/show/${encodeURIComponent(s.id)}`;
     return el('div', { class: 'card update clickable', onclick: cardClick(href) },
       el('div', { class: 'update-head' }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(s.tmdb && s.tmdb.poster)),

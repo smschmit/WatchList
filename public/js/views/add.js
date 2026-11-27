@@ -3,7 +3,7 @@ import { el, today, toast, norm } from '../util.js';
 import { state, readOnly, normShow, save, canEdit, listShowFor } from '../state.js';
 import { go, syncLastHash } from '../router.js';
 import { tmdbPicker, titleHash, statusClass } from '../ui.js';
-import { addFromTmdb, possibleMatch, linkAndFill, removeShow, newShowStatus } from '../library.js';
+import { addFromTmdb, addAsFinished, possibleMatch, linkAndFill, removeShow, newShowStatus } from '../library.js';
 import { openEdit } from './show.js';
 
 const showHref = (s) => `#/show/${encodeURIComponent(s.id)}`;
@@ -18,6 +18,11 @@ function hitActions(h, refresh) {
     const s = await addFromTmdb(h);
     if (s) toast(`Added ${s.title} as ${s.status}`, { label: 'Undo', run: () => { removeShow(s); refresh(); } });
   });
+  const seen = busy(async () => {
+    const s = await addAsFinished(h);
+    if (s) toast(`Added ${s.title} as ${s.status}`, { label: 'Undo', run: () => { removeShow(s); refresh(); } });
+  });
+  const seenBtn = () => el('button', { class: 'btn small', type: 'button', title: 'Add it as already watched (Finished)', onclick: seen }, '✓ Seen it');
   const match = possibleMatch(h);
   if (match) {
     return [
@@ -25,9 +30,10 @@ function hitActions(h, refresh) {
       el('button', { class: 'btn small primary', type: 'button', title: `Link “${match.title}” to this TMDB title and fill in blanks`,
         onclick: busy(() => linkAndFill(match, h)) }, 'Link'),
       el('button', { class: 'btn small', type: 'button', onclick: add }, 'Add anyway'),
+      seenBtn(),
     ];
   }
-  return el('button', { class: 'btn small primary', type: 'button', onclick: add }, '+ Add');
+  return [el('button', { class: 'btn small primary', type: 'button', onclick: add }, '+ Add'), seenBtn()];
 }
 
 // ---------- Add ----------

@@ -60,12 +60,15 @@ export const MOVIE_EDGES = [[90, 'Movie under 90 min'], [120, 'Movie 90–119 mi
 export const HOUR_EDGES = [[3, 'Under 3 h'], [10, '3–10 h'], [25, '10–25 h'], [50, '25–50 h'], [100, '50–100 h'], [Infinity, '100 h +']];
 export const SEASON_EDGES = [[2, '1 season'], [4, '2–3 seasons'], [7, '4–6 seasons'], [Infinity, '7+ seasons']];
 export let actorIndex = new Map(); // "tv:123" -> [actor names], rebuilt on render
+export let actorEpisodes = new Map(); // "tv:123" -> Map(actor name -> episodes), where known
 export function rebuildActorIndex() {
   actorIndex = new Map();
+  actorEpisodes = new Map();
   for (const a of state.actors) for (const c of a.credits) {
     const k = `${c.type}:${c.id}`;
-    if (!actorIndex.has(k)) actorIndex.set(k, []);
+    if (!actorIndex.has(k)) { actorIndex.set(k, []); actorEpisodes.set(k, new Map()); }
     if (!actorIndex.get(k).includes(a.name)) actorIndex.get(k).push(a.name);
+    if (c.episodes) actorEpisodes.get(k).set(a.name, c.episodes);
   }
 }
 export function favNamesFor(s) { return s.tmdb && s.tmdb.id ? actorIndex.get(`${s.tmdb.type}:${s.tmdb.id}`) || [] : []; }

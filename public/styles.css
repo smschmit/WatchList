@@ -392,3 +392,37 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .fastscroll.dragging .fastscroll-thumb::before { width: 12px; opacity: 1; }
 .fastscroll-bubble { position: absolute; right: 52px; transform: translateY(-50%); min-width: 2.6rem; padding: .35rem .7rem; border-radius: 10px;
   background: var(--accent); color: var(--card); font-weight: 700; font-size: 1.15rem; text-align: center; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }
+
+/* Episodes and where you are */
+.up-next { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .2rem 0 .5rem; padding: .4rem .6rem; border-radius: 10px; background: var(--accent-soft); }
+.episodes .stills-head { margin-top: 0; }
+.episodes .stills-head h2 { margin: 0; }
+.ep-list { display: grid; gap: .1rem; margin-top: .4rem; }
+.ep-row { display: flex; align-items: flex-start; gap: .6rem; padding: .4rem 0; border-top: 1px solid var(--line); }
+.ep-row:first-child { border-top: 0; }
+.ep-row.unaired { opacity: .7; }
+.ep-tick, .ep-tick-space { flex: none; width: 1.9rem; height: 1.9rem; }
+.ep-tick { border-radius: 50%; border: 2px solid var(--line); background: var(--card); color: #fff; font-weight: 700; cursor: pointer; padding: 0; line-height: 1; }
+.ep-tick:hover { border-color: var(--accent); }
+.ep-tick.on { background: var(--accent); border-color: var(--accent); }
+@media (prefers-color-scheme: dark) { .ep-tick.on { color: var(--card); } }
+.ep-tick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.thumb.ep-still { width: 128px; aspect-ratio: 16 / 9; }
+.ep-body { flex: 1; min-width: 0; }
+.ep-overview { margin-top: .15rem; }
+@media (max-width: 640px) { .thumb.ep-still { width: 96px; } }
+
+/* Small shared pieces */
+.linklike { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
+.linklike:hover { text-decoration: underline; }
+.narrow-only { display: none; }
+.credit-actions { display: flex; gap: .3rem; flex: none; }
+@media (max-width: 640px) {
+  .credit-actions .wide-only { display: none; }
+  .credit-actions .narrow-only { display: inline; }
+  .credit-actions .btn { min-width: 2.2rem; justify-content: center; }
+}
+.presets .count { opacity: .75; font-size: .85em; }
+.on-list { color: var(--text); }
+.actors-page .find-input { flex: 1 1 260px; }
+.actors-page h2 { margin-top: 1rem; }

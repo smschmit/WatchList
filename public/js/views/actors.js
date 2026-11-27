@@ -1,13 +1,13 @@
 // One actor's page, and the favorite actors page.
-import { el, toast, today, norm } from '../util.js';
+import { el, toast, today, norm, uniq } from '../util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from '../state.js';
-import { favNamesFor, statusNames } from '../categories.js';
-import { go, listHash, recall, remember, restoreScroll } from '../router.js';
-import { getPerson, roleTier, knownScore } from '../tmdb.js';
-import { addFromTmdb } from '../library.js';
+import { favNamesFor, statusNames, spoilerStatusNames } from '../categories.js';
+import { go, listHash, recall, remember, restoreScroll, syncLastHash } from '../router.js';
+import { getPerson, roleTier, knownScore, searchPeoplePage } from '../tmdb.js';
+import { addFromTmdb, addAsFinished, removeShow, slimCredits, noteNewCredits } from '../library.js';
 import { recordView } from '../recent.js';
 import { pinTitle } from '../pagetitle.js';
-import { statusSelect, poster, heartBtn, titleHash, cardClick, favLine } from '../ui.js';
+import { statusSelect, poster, heartBtn, titleHash, cardClick, favLine, pagedSearch } from '../ui.js';
 
 // ---------- Filmography filters ----------
 // Chips in a group combine with OR (Lead or Supporting); groups combine with AND (and a Drama, and from the 1990s).
@@ -23,6 +23,16 @@ const GROUPS = [
   { key: 'decade', label: 'Decade', values: (c) => [c.year ? `${Math.floor(c.year / 10) * 10}s` : 'No year'],
     order: (totals) => [...totals.keys()].filter((v) => v !== 'No year').sort().reverse() },
 ];
+// One-tap presets for the My list group. Seen: statuses that turn spoilers on (Finished, Rewatching, Dropped unless
+// changed in Status options) plus Watching and Some. Plan to see: the statuses that mean you mean to watch it.
+const SEEN_EXTRA = ['Watching', 'Some'];
+const PLAN = ['Want to Watch', 'Restart Planned', "Waiting on Release and Now It's Ready"];
+export function presetStatuses(key) {
+  const names = statusNames();
+  const want = key === 'seen' ? uniq([...spoilerStatusNames(), ...SEEN_EXTRA]) : PLAN;
+  return want.filter((n) => names.includes(n));
+}
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 const blankFilters = () => ({ ...Object.fromEntries(GROUPS.map((g) => [g.key, []])), appearances: false });
 function tally(credits, g) {
   const m = new Map();
@@ -84,7 +94,8 @@ export function viewActor(r) {
     const a = actorByTmdb(pid);
     if (location.hash === here) recordView({ kind: 'actor', id: pid, name: p.name, profile: p.profile || null });
     if (a && (!a.creditsAt || a.creditsAt < today())) {
-      a.credits = p.credits.filter((c) => !c.appearance).map(({ id, type, title, year }) => ({ id, type, title, year }));
+      noteNewCredits(a, p.credits);
+      a.credits = slimCredits(p.credits);
       a.creditsAt = today(); a.profile = p.profile || a.profile; save({ quiet: true });
     }
     const note = el('textarea', { rows: 2, placeholder: 'Why you like them', readOnly }, a ? a.note : '');
@@ -120,8 +131,20 @@ export function viewActor(r) {
       onclick: () => { open = !open; remember('filtersOpen', open); fill(); } });
     const panel = el('div', { class: 'filter-panel card', id: `filters-${pid}` });
     const activeRow = el('div', { class: 'chips active-filters' });
+    const presetBox = el('span', { class: 'seg presets', role: 'group', 'aria-label': 'Quick filters' });
     const controls = el('div', { class: 'filter-bar' },
-      el('div', { class: 'find-row' }, findInput), sortSelect, filtersBtn, shownLine);
+      el('div', { class: 'find-row' }, findInput), presetBox, sortSelect, filtersBtn, shownLine);
+    const presetOn = (key) => { const want = presetStatuses(key); return want.length > 0 && sameSet(f.list, want); };
+    function drawPresets(ws) {
+      presetBox.replaceChildren(...[['seen', 'Seen'], ['plan', 'Plan to see']].map(([key, label]) => {
+        const want = presetStatuses(key);
+        const on = presetOn(key);
+        const n = p.credits.filter((c) => passes(c, ws, 'list') && listShowFor(c) && want.includes(listShowFor(c).status)).length;
+        return el('button', { class: `seg-btn ${on ? 'on' : ''}`, 'aria-pressed': String(on), disabled: !want.length,
+          title: on ? 'Tap to clear' : `My list: ${want.join(', ')}`,
+          onclick: () => change(() => { f.list = on ? [] : [...want]; }) }, label, el('span', { class: 'count' }, ` ${n}`));
+      }));
+    }
     // Every word typed has to appear in the title, year, character, type or genre (ignoring case and accents).
     const words = () => norm(find).split(/\s+/).filter(Boolean);
     const matches = (c, ws) => { const t = norm(`${c.title} ${c.year || ''} ${c.character || ''} ${c.type === 'tv' ? 'tv' : 'movie'} ${(c.genres || []).join(' ')}`); return ws.every((w) => t.includes(w)); };
@@ -192,6 +215,7 @@ export function viewActor(r) {
     }
     function fill() {
       const ws = words();
+      drawPresets(ws);
       const focusKey = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.key;
       const items = p.credits.filter((c) => passes(c, ws));
       const sorter = SORTS.find(([v]) => v === sortBy);
@@ -200,7 +224,7 @@ export function viewActor(r) {
       const total = p.credits.filter((c) => f.appearances || !c.appearance).length;
       shownLine.textContent = items.length === total ? `${total} titles` : `Showing ${items.length} of ${total}`;
       const n = activeCount();
-      filtersBtn.replaceChildren('Filters', n ? el('span', { class: 'badge' }, n) : null, el('span', { 'aria-hidden': 'true' }, open ? ' ▴' : ' ▾'));
+      filtersBtn.replaceChildren(...['Filters', n ? el('span', { class: 'badge' }, n) : null, el('span', { 'aria-hidden': 'true' }, open ? ' ▴' : ' ▾')].filter(Boolean));
       filtersBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       filtersBtn.classList.toggle('active', !!n);
       panel.hidden = !open;
@@ -222,13 +246,20 @@ export function viewActor(r) {
     }
     function creditRow(c) {
       const mine = listShowFor(c);
+      const addWith = (fn) => async (e) => {
+        e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        const btns = e.currentTarget.parentNode;
+        const s = await fn({ id: c.id, type: c.type }, { sources: [`Actor: ${p.name}`] });
+        if (s) {
+          toast(`Added ${s.title} as ${s.status}`, { label: 'Undo', run: () => { removeShow(s); fill(); updateCount(); } });
+          fill(); updateCount();
+        } else btns.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+      };
       const action = mine
         ? statusSelect(mine)
-        : readOnly ? null : el('button', { class: 'btn small primary', onclick: async (e) => {
-          e.target.disabled = true;
-          const s = await addFromTmdb({ id: c.id, type: c.type }, { sources: [`Actor: ${p.name}`] });
-          if (s) { toast(`Added ${s.title}`, { label: 'Open', run: () => go(`#/show/${s.id}`) }); fill(); updateCount(); } else e.target.disabled = false;
-        } }, '+ Add');
+        : readOnly ? null : el('div', { class: 'credit-actions' },
+          el('button', { class: 'btn small primary', title: 'Add to your list', onclick: addWith(addFromTmdb) }, el('span', { class: 'wide-only' }, '+ Add'), el('span', { class: 'narrow-only', 'aria-hidden': 'true' }, '+')),
+          el('button', { class: 'btn small', title: 'Seen it: add as Finished', onclick: addWith(addAsFinished) }, el('span', { class: 'wide-only' }, '✓ Seen it'), el('span', { class: 'narrow-only', 'aria-hidden': 'true' }, '✓')));
       const href = titleHash(c, `Actor: ${p.name}`);
       return el('div', { class: `credit clickable ${mine ? 'mine' : ''}`, onclick: cardClick(href) }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(c.poster)),
         el('div', { class: 'credit-body' },
@@ -245,21 +276,66 @@ export function viewActor(r) {
   return wrap;
 }
 
-export function viewActors() {
-  const wrap = el('div', { class: 'actors-page' }, el('h1', {}, 'Favorite actors'));
-  if (!state.actors.length) {
-    wrap.append(el('p', { class: 'muted' }, 'None yet. Open a show, look at its cast, and tap ♡ on the actors you like. Shows need to be linked to TMDB first: ',
-      el('a', { href: '#/link' }, 'link your list'), '.'));
-    return wrap;
+// Favorite actors, with a search box: typing filters your favorites at once and searches TMDB for other actors
+// underneath. The search is kept in the URL (#/actors?q=…) so Back returns to the results.
+export function viewActors(r) {
+  const q0 = (r && r.params.get('q')) || '';
+  const wrap = el('div', { class: 'actors-page' }, el('h1', {}, 'Actors'));
+  const input = el('input', { type: 'search', class: 'find-input', placeholder: 'Search actors', 'aria-label': 'Search actors', autocomplete: 'off', value: q0 });
+  const favBox = el('div');
+  const tmdbHead = el('h2', { hidden: true }, 'On TMDB');
+  const results = el('div', { class: 'cast-grid' });
+  const more = el('button', { class: 'btn small', type: 'button', hidden: true }, 'Show more');
+  const favIds = () => new Set(state.actors.map((a) => a.tmdbId));
+  const onList = new Set(state.shows.filter((s) => s.tmdb && s.tmdb.id).map((s) => `${s.tmdb.type}:${s.tmdb.id}`));
+  const { run } = pagedSearch({ results, more, empty: 'No other actors found.',
+    fetchPage: (p) => ({ q: input.value.trim(), p }),
+    load: ({ q, p }) => searchPeoplePage(q, p),
+    renderItem: (h) => (favIds().has(h.id) ? null : personResult(h, onList)) });
+  function drawFavs() {
+    const words = norm(input.value).split(/\s+/).filter(Boolean);
+    const actors = [...state.actors].sort((a, b) => a.name.localeCompare(b.name)).filter((a) => words.every((w) => norm(a.name).includes(w)));
+    if (!state.actors.length) {
+      favBox.replaceChildren(el('p', { class: 'muted' }, 'No favorites yet. Search for an actor above, or open a show, look at its cast, and tap ♡ on the actors you like.'));
+      return;
+    }
+    favBox.replaceChildren(el('h2', {}, `Favorites${words.length ? ` matching “${input.value.trim()}”` : ''} (${actors.length})`),
+      actors.length ? el('div', { class: 'cast-grid' }, actors.map(favTile)) : el('p', { class: 'muted small' }, 'No favorites match.'));
   }
-  const actors = [...state.actors].sort((a, b) => a.name.localeCompare(b.name));
-  wrap.append(el('div', { class: 'cast-grid' }, actors.map((a) => {
-    const n = state.shows.filter((s) => favNamesFor(s).includes(a.name)).length;
-    return el('div', { class: 'person clickable', onclick: cardClick(`#/actor/${a.tmdbId}`) },
-      el('a', { href: `#/actor/${a.tmdbId}` }, poster(a.profile, 'w185', 'face')),
-      el('div', { class: 'person-body' }, el('a', { class: 'person-name', href: `#/actor/${a.tmdbId}` }, a.name),
-        el('div', { class: 'small' }, n ? el('a', { href: listHash([{ cat: 'actor', value: a.name }]) }, `${n} on your list`) : el('span', { class: 'muted' }, 'none on your list')),
-        a.note ? el('div', { class: 'muted small' }, a.note) : null));
-  })));
+  let timer;
+  const update = (now) => {
+    drawFavs();
+    const q = input.value.trim();
+    history.replaceState(history.state, '', q ? `#/actors?${new URLSearchParams({ q })}` : '#/actors');
+    syncLastHash();
+    clearTimeout(timer);
+    tmdbHead.hidden = q.length < 2;
+    if (q.length < 2) { run(); return; } // clears
+    timer = setTimeout(() => run(), now ? 0 : 350);
+  };
+  input.addEventListener('input', () => update(false));
+  wrap.append(el('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); update(true); } }, input),
+    favBox, tmdbHead, results, el('div', { class: 'more-row' }, more));
+  drawFavs();
+  if (q0.trim().length >= 2) { tmdbHead.hidden = false; run(); }
   return wrap;
+}
+function favTile(a) {
+  const n = state.shows.filter((s) => favNamesFor(s).includes(a.name)).length;
+  return el('div', { class: 'person clickable', onclick: cardClick(`#/actor/${a.tmdbId}`) },
+    el('a', { href: `#/actor/${a.tmdbId}` }, poster(a.profile, 'w185', 'face')),
+    el('div', { class: 'person-body' }, el('a', { class: 'person-name', href: `#/actor/${a.tmdbId}` }, a.name),
+      el('div', { class: 'small' }, n ? el('a', { href: listHash([{ cat: 'actor', value: a.name }]) }, `${n} on your list`) : el('span', { class: 'muted' }, 'none on your list')),
+      a.note ? el('div', { class: 'muted small' }, a.note) : null),
+    heartBtn({ id: a.tmdbId, name: a.name, profile: a.profile }, a));
+}
+// A TMDB search result: face, name, and what they're known for (titles on your list stand out).
+function personResult(h, onList) {
+  const href = `#/actor/${h.id}`;
+  return el('div', { class: 'person clickable', onclick: cardClick(href) },
+    el('a', { href }, poster(h.profile, 'w185', 'face')),
+    el('div', { class: 'person-body' }, el('a', { class: 'person-name', href }, h.name),
+      h.knownFor.length ? el('div', { class: 'muted small' }, 'Known for: ', h.knownFor.map((k, i) => [i ? ', ' : '',
+        onList.has(`${k.type}:${k.id}`) ? el('b', { class: 'on-list', title: 'On your list' }, k.title) : k.title])) : null),
+    heartBtn({ id: h.id, name: h.name, profile: h.profile }, null));
 }

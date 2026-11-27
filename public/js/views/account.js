@@ -5,6 +5,7 @@ import { totalHours, fieldOf } from '../shows.js';
 import { favNamesFor, SORTS } from '../categories.js';
 import { render } from '../router.js';
 import { APP_VERSION } from '../version.js';
+import { progressLabel } from '../progress.js';
 
 // ---------- Account, backup, export ----------
 export const EXPORT_COLS = [
@@ -20,6 +21,8 @@ export const EXPORT_COLS = [
   ['Confidence', (s) => s.confidence], ['Research Notes', (s) => s.researchNotes],
   ['TMDB', (s) => (s.tmdb && s.tmdb.id ? `https://www.themoviedb.org/${s.tmdb.type}/${s.tmdb.id}` : '')],
   ['TMDB Status (last check)', (s) => (s.facts ? s.facts.status : '')],
+  ['Progress', (s) => progressLabel(s)],
+  ['Spoilers', (s) => (s.spoilers ? 'On' : '')],
 ];
 export function exportRows() {
   render(); // make sure the favorite-actor index is current

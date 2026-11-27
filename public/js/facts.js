@@ -32,10 +32,20 @@ export function factsFromDetails(d) {
     nextAir: (next && next.air_date) || null,
     nextSeason: next ? next.season_number : null,
     nextEpisode: next ? next.episode_number : null,
+    // The last aired episode, and episodes per season (index = season number; 0 = specials), so the Updates page
+    // can say how many episodes came out since where you are, without another lookup.
+    lastSeason: last ? last.season_number : null,
+    lastEpisode: last ? last.episode_number : null,
+    seasonEps: seasonCounts(d.seasons),
     checkedAt: today(),
   };
 }
 
+export function seasonCounts(seasons) {
+  const out = [];
+  for (const x of seasons || []) if (x.season_number >= 0 && x.season_number < 200) out[x.season_number] = x.episode_count || 0;
+  return Array.from(out, (n) => n || 0);
+}
 const epCode = (season, ep) => `S${season}${ep ? `E${ep}` : ''}`;
 export function fmtDate(iso) {
   if (!iso) return '';
