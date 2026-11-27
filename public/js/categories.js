@@ -83,6 +83,20 @@ export function settingValues(s) {
   for (const n of fieldOf(s, 'setting')) for (const v of [n, ...placeWithin(n)]) if (!out.includes(v)) out.push(v);
   return out;
 }
+// Where to watch, from the stored snapshot (watch.js). Subscription and free only: rent and buy would put almost
+// every title under Apple TV Store.
+const watchNames = (s) => (s.watch ? [...(s.watch.stream || []), ...(s.watch.free || [])] : []);
+export const AVAIL = ['On my services', 'Free', 'Other services', 'Rent or buy only', 'Not available', 'Not checked'];
+export function availability(s) {
+  const w = s.watch;
+  if (!w) return 'Not checked';
+  const mine = (Array.isArray(state.myServices) ? state.myServices : []).map((n) => n.toLowerCase());
+  if ((w.stream || []).concat(w.free || []).some((n) => mine.includes(n.toLowerCase()))) return 'On my services';
+  if ((w.free || []).length) return 'Free';
+  if ((w.stream || []).length) return 'Other services';
+  if (w.shop) return 'Rent or buy only';
+  return 'Not available';
+}
 export const CATS = [
   { key: 'status', label: 'My status', get: (s) => s.status, get order() { return statusNames(); } },
   { key: 'rating', label: 'My rating', get: (s) => (s.rating ? stars(s.rating) : ''), order: [5, 4, 3, 2, 1].map(stars) },
@@ -93,6 +107,8 @@ export const CATS = [
   { key: 'genre', label: 'Genre', get: (s) => s.genres, multi: true },
   { key: 'tag', label: 'Tags', get: (s) => s.tags, multi: true, top: 40 },
   { key: 'network', label: 'Network / platform', get: (s) => s.network, top: 30 },
+  { key: 'onmine', label: 'On my services', get: availability, order: AVAIL, hideBlank: true, hideIf: () => !state.shows.some((s) => s.watch) },
+  { key: 'watch', label: 'Where to watch', get: watchNames, multi: true, hideBlank: true, top: 30 },
   { key: 'country', label: 'Country', get: (s) => s.country.split(/\s*,\s*/), multi: true },
   { key: 'language', label: 'Language', get: (s) => s.languages, multi: true },
   { key: 'fiction', label: 'Fiction', get: (s) => fieldOf(s, 'fiction'), order: FICTION },

@@ -6,6 +6,7 @@ import { favNamesFor, SORTS } from '../categories.js';
 import { render } from '../router.js';
 import { APP_VERSION } from '../version.js';
 import { progressLabel } from '../progress.js';
+import { watchRegion, regionLabel, myServices, isMine } from '../watch.js';
 
 // ---------- Account, backup, export ----------
 export const EXPORT_COLS = [
@@ -22,6 +23,7 @@ export const EXPORT_COLS = [
   ['TMDB', (s) => (s.tmdb && s.tmdb.id ? `https://www.themoviedb.org/${s.tmdb.type}/${s.tmdb.id}` : '')],
   ['TMDB Status (last check)', (s) => (s.facts ? s.facts.status : '')],
   ['Progress', (s) => progressLabel(s)],
+  ['On My Services', (s) => (s.watch ? [...(s.watch.stream || []), ...(s.watch.free || [])].filter(isMine).join(', ') : '')],
   ['Spoilers', (s) => (s.spoilers ? 'On' : '')],
 ];
 export function exportRows() {
@@ -78,6 +80,10 @@ export function viewAccount() {
         el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links'),
         el('a', { class: 'btn', href: '#/fill' }, 'Fill from TMDB')),
       el('p', { class: 'muted small' }, 'Fill from TMDB adds Fiction, Tone, Setting and Era (from TMDB and Wikidata), and Country and Language where blank.')),
+    el('section', { class: 'card' }, el('h2', {}, 'Where to watch'),
+      el('p', { class: 'small' }, `Region: ${regionLabel(watchRegion())}. ${myServices().length ? `Your services: ${myServices().join(', ')}.` : 'No services picked yet.'} `,
+        `${state.shows.filter((s) => s.watch).length} titles checked.`),
+      el('a', { class: 'btn edit-only', href: '#/watch' }, 'Services and check')),
     el('section', { class: 'card edit-only' }, el('h2', {}, 'Tags'),
       el('p', { class: 'small' }, `${new Set(state.shows.flatMap((s) => s.tags)).size} distinct tags. Merge duplicates, move tags into fields, and review shows one card at a time.`),
       el('div', { class: 'btn-row' }, el('a', { class: 'btn', href: '#/tags' }, 'Tag cleanup'), el('a', { class: 'btn', href: '#/tags/deck' }, 'Tag Deck'))),

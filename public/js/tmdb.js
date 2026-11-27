@@ -60,6 +60,14 @@ export async function tmdb(path, params = {}) {
   }
   return res.json();
 }
+// Forget one saved answer, so the next lookup asks TMDB again.
+export function uncache(key) {
+  memCache.delete(key);
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    if (key in all) { delete all[key]; localStorage.setItem(CACHE_KEY, JSON.stringify(all)); }
+  } catch {}
+}
 export async function cached(key, fn, maxAge) {
   const hit = cacheGet(key, maxAge);
   if (hit !== undefined) return hit;
@@ -87,7 +95,8 @@ const GENRES = { 28: ['Action'], 12: ['Adventure'], 16: ['Animation'], 35: ['Com
   10766: ['Soap'], 10767: ['Talk'], 10768: ['War', 'Politics'] };
 export const genreNames = (ids) => [...new Set((ids || []).flatMap((id) => GENRES[id] || []))];
 // Key bumped (person2: billing order and vote counts; person3: genres and rating) so older cached copies aren't used.
-export function getPerson(pid) {
+export function getPerson(pid, { fresh = false } = {}) {
+  if (fresh) uncache(`person3:${pid}`);
   return cached(`person3:${pid}`, async () => {
     const [p, c] = await Promise.all([tmdb(`/person/${pid}`), tmdb(`/person/${pid}/combined_credits`)]);
     const seen = new Map();
@@ -198,13 +207,27 @@ export function getBackdrops(t) {
 }
 // Where a title is streaming, free, for rent or for sale in one country (TMDB's data, from JustWatch).
 // TMDB answers for every country at once; only the one asked for is kept. Cached for a day, since catalogs change.
+export async function fetchWatchProviders(t, region) {
+  const d = await tmdb(`/${t.type}/${t.id}/watch/providers`);
+  const r = (d.results || {})[region] || {};
+  const slim = (list) => (list || []).map((p) => ({ id: p.provider_id, name: p.provider_name, logo: p.logo_path, order: p.display_priority ?? 999 }));
+  return { link: r.link || '', flatrate: slim(r.flatrate), free: slim(r.free), ads: slim(r.ads), rent: slim(r.rent), buy: slim(r.buy) };
+}
 export function getWatchProviders(t, region) {
-  return cached(`watch:${region}:${t.type}:${t.id}`, async () => {
-    const d = await tmdb(`/${t.type}/${t.id}/watch/providers`);
-    const r = (d.results || {})[region] || {};
-    const slim = (list) => (list || []).map((p) => ({ id: p.provider_id, name: p.provider_name, logo: p.logo_path, order: p.display_priority ?? 999 }));
-    return { link: r.link || '', flatrate: slim(r.flatrate), free: slim(r.free), ads: slim(r.ads), rent: slim(r.rent), buy: slim(r.buy) };
-  }, 864e5);
+  return cached(`watch:${region}:${t.type}:${t.id}`, () => fetchWatchProviders(t, region), 864e5);
+}
+// Every streaming service in a region (TV and movie lists combined), for the My services picker.
+export function getProviderList(region) {
+  return cached(`providers:${region}`, async () => {
+    const [tv, movie] = await Promise.all(['tv', 'movie'].map((k) => tmdb(`/watch/providers/${k}`, { watch_region: region })));
+    const seen = new Map();
+    for (const p of [...(tv.results || []), ...(movie.results || [])]) {
+      if (seen.has(p.provider_id)) continue;
+      const order = (p.display_priorities && p.display_priorities[region]) ?? p.display_priority ?? 999;
+      seen.set(p.provider_id, { id: p.provider_id, name: p.provider_name, logo: p.logo_path, order });
+    }
+    return [...seen.values()];
+  });
 }
 // Every episode of a season, slimmed to what the Episodes card shows (about 4 KB a season).
 // maxAge: a day for the current season of a show still airing, else the 7-day default.

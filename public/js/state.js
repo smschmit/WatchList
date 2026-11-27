@@ -36,12 +36,13 @@ export function normShow(s) {
     fiction: ownStr(s.fiction), tone: ownStr(s.tone), setting: ownList(s.setting), era: ownList(s.era),
     sourced: s.sourced || null, // what TMDB and Wikidata said at the last fill (sources.js); never edited by hand
     tagsReviewedAt: s.tagsReviewedAt || null, // last time you saved this show in the Tag Deck
+    watch: s.watch || null, // where it streamed at the last look (watch.js): { region, at, stream: [names], free: [names], shop: n, news }
     ...pickExtra(s, SHOW_KEYS),
   };
 }
 export const SHOW_KEYS = ['id', 'title', 'format', 'year', 'endYear', 'seasons', 'episodes', 'epLength', 'showStatus', 'genres',
   'structure', 'country', 'languages', 'tags', 'network', 'confidence', 'researchNotes', 'status', 'want', 'recommend',
-  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck', 'fiction', 'tone', 'setting', 'era', 'sourced', 'tagsReviewedAt', 'spoilers'];
+  'sources', 'notes', 'rating', 'tmdb', 'facts', 'factsAck', 'fiction', 'tone', 'setting', 'era', 'sourced', 'tagsReviewedAt', 'spoilers', 'watch'];
 const ownStr = (v) => (v == null ? null : String(v));
 const ownList = (v) => (v == null ? null : arr(v));
 export function normActor(a) {

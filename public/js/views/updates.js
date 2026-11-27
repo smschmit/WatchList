@@ -1,12 +1,15 @@
 // Updates: ask TMDB about your TV shows (manual button), then list what changed and where your
 // show status disagrees. Nothing on your list changes until you tap a button on a card.
 import { el, toast } from '../util.js';
-import { state, readOnly, save, canEdit, bulk } from '../state.js';
-import { checkFacts, setStatus } from '../library.js';
+import { state, readOnly, save, canEdit, bulk, listShowFor } from '../state.js';
+import { checkFacts, setStatus, refreshCredits } from '../library.js';
 import { labelClass, factClass, updateFor, factsSignature, describeNext, fmtDate, WAITING, READY, FINISHED, waitingStatus } from '../facts.js';
-import { poster, statusSelect, cardClick, favLine } from '../ui.js';
+import { poster, statusSelect, cardClick, favLine, titleHash } from '../ui.js';
 import { statusNames } from '../categories.js';
 import { getProgress, epLabel, episodesBetween, nextAfter } from '../progress.js';
+
+// Statuses whose titles count for "Now on / Left your services": ones you mean to watch.
+const WANTING = ['Want to Watch', 'Restart Planned', READY, ...WAITING];
 
 // Kept outside the view so a check keeps going (and its progress shows) if you open a show and come back.
 let checker = null; // { running, done, total, changed, missing, onProgress }
@@ -26,6 +29,29 @@ const worthChecking = (s) => {
 };
 
 const runCheck = (list) => bulk(() => checkAll(list));
+// Favorite actors: look up each one's credits again (skipping the cache) and note new projects (library.js noteNewCredits).
+let actorCheck = null; // { running, done, total, found }
+async function checkActors(onProgress) {
+  const list = [...state.actors];
+  actorCheck = { running: true, done: 0, total: list.length, found: 0 };
+  onProgress();
+  let i = 0;
+  await bulk(async () => {
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      while (actorCheck.running && i < list.length) {
+        const a = list[i++];
+        const before = (a.news || []).length;
+        try { await refreshCredits(a, { quiet: true, fresh: true }); } catch (e) { if (!/\(404\)/.test(e.message)) { actorCheck.running = false; toast(e.message); } }
+        actorCheck.found += Math.max(0, (a.news || []).length - before);
+        actorCheck.done++;
+        onProgress();
+      }
+    }));
+    actorCheck.running = false;
+    save({ quiet: true });
+  });
+  onProgress();
+}
 async function checkAll(list) {
   checker = { running: true, done: 0, total: list.length, changed: 0, missing: 0, onProgress: checker && checker.onProgress };
   const progress = () => checker.onProgress && checker.onProgress();
@@ -92,12 +118,22 @@ export function viewUpdates() {
       includeEnded ? null : el('p', { class: 'muted small' }, 'Finished shows that TMDB has as ended or canceled are rechecked once a month, in case of a revival.'),
       checker && !checker.running && checker.done
         ? el('p', { class: 'small' }, `Checked ${checker.done}: ${checker.changed} changed since the last check${checker.missing ? `, ${checker.missing} no longer on TMDB` : ''}.`)
-        : null].filter(Boolean));
+        : null,
+      state.actors.length ? (actorCheck && actorCheck.running
+        ? el('p', { class: 'small' }, `Checking favorite actors: ${actorCheck.done} of ${actorCheck.total}… `,
+          el('button', { class: 'btn small', onclick: () => { actorCheck.running = false; } }, 'Stop'))
+        : el('div', { class: 'row' },
+          el('button', { class: 'btn', onclick: () => checkActors(() => { if (wrap.isConnected) { renderStatus(); if (!actorCheck.running) renderList(); } }) },
+            `Check ${state.actors.length} favorite actor${state.actors.length === 1 ? '' : 's'} for new projects`),
+          actorCheck && actorCheck.done ? el('span', { class: 'small muted' }, `${actorCheck.found} new found.`) : null)) : null].filter(Boolean));
   }
 
   function renderList() {
     const items = state.shows.map((s) => ({ s, u: updateFor(s) })).filter((x) => x.u)
       .sort((a, b) => a.s.title.localeCompare(b.s.title));
+    const byTitle = (a, b) => a.title.localeCompare(b.title);
+    const watchNews = state.shows.filter((s) => s.watch && s.watch.news && WANTING.includes(s.status)).sort(byTitle);
+    const actorNews = state.actors.filter((a) => (a.news || []).length).sort((a, b) => a.name.localeCompare(b.name));
     const groups = [
       ['Ready to watch', 'Shows you were waiting on.', items.filter((x) => x.u.ready)],
       ['More coming', 'Shows you finished that have a new season on the way or out.', items.filter((x) => !x.u.ready && x.u.more)],
@@ -105,6 +141,15 @@ export function viewUpdates() {
       ['Show status to review', 'Your label and TMDB disagree, or TMDB has more seasons than your list.', items.filter((x) => !x.u.ready && !x.u.more && !x.u.changes.length)],
     ];
     list.replaceChildren();
+    const joined = watchNews.filter((s) => s.watch.news.kind === 'joined');
+    const left = watchNews.filter((s) => s.watch.news.kind === 'left');
+    if (joined.length) list.append(el('h2', {}, `Now on your services (${joined.length})`),
+      el('p', { class: 'muted small' }, 'Titles you want to watch that weren’t on any of your services at the last look, and now are.'), ...joined.map(watchCard));
+    if (left.length) list.append(el('h2', {}, `Left your services (${left.length})`),
+      el('p', { class: 'muted small' }, 'Titles you want to watch that were on one of your services and no longer are. TMDB gives no warning before they go.'), ...left.map(watchCard));
+    if (actorNews.length) list.append(el('h2', {}, `New from your favorite actors (${actorNews.reduce((n, a) => n + a.news.length, 0)})`),
+      el('p', { class: 'muted small' }, 'Projects that appeared in their TMDB credits since the last look.'), ...actorNews.map(actorCard));
+    if (!items.length && (joined.length || left.length || actorNews.length)) return;
     if (!items.length) list.append(el('p', { class: 'muted' }, linkedTv().some((s) => s.facts) ? 'Nothing new. Everything matches TMDB.' : 'Run a check to see what\'s new.'));
     for (const [title, sub, xs] of groups) {
       if (!xs.length) continue;
@@ -139,6 +184,40 @@ export function viewUpdates() {
         u.seasons ? el('button', { class: 'btn small', onclick: act(() => { s.seasons = u.seasons; if (f.episodes) s.episodes = f.episodes; }) },
           `Update to ${u.seasons} seasons`) : null,
         el('button', { class: 'btn small ghost', title: 'Hide until TMDB says something new', onclick: act(() => { s.factsAck = factsSignature(f); }) }, 'Dismiss')));
+  }
+
+  function watchCard(s) {
+    const n = s.watch.news;
+    const href = `#/show/${encodeURIComponent(s.id)}`;
+    return el('div', { class: 'card update clickable', onclick: cardClick(href) },
+      el('div', { class: 'update-head' }, el('a', { href, 'aria-hidden': 'true', tabindex: '-1' }, poster(s.tmdb && s.tmdb.poster)),
+        el('div', {},
+          el('div', { class: 'show-card-title' }, el('a', { href }, el('b', {}, s.title)), statusSelect(s)),
+          el('div', { class: 'small' }, n.kind === 'joined' ? `Now on ${n.names.join(', ')}` : `No longer on ${n.names.join(', ')}`,
+            el('span', { class: 'muted' }, ` · noticed ${fmtDate(n.at)}`)),
+          favLine(s))),
+      el('div', { class: 'btn-row' }, el('button', { class: 'btn small ghost', onclick: () => {
+        if (!canEdit()) return; delete s.watch.news; save({ quiet: true }); renderList();
+      } }, 'Dismiss')));
+  }
+  function actorCard(a) {
+    const dismiss = (keys) => {
+      if (!canEdit()) return;
+      a.newsSeen = [...new Set([...(a.newsSeen || []), ...keys])].slice(-200);
+      a.news = a.news.filter((c) => !keys.includes(`${c.type}:${c.id}`));
+      save({ quiet: true }); renderList();
+    };
+    return el('div', { class: 'card update' },
+      el('div', { class: 'update-head' }, el('a', { href: `#/actor/${a.tmdbId}`, 'aria-hidden': 'true', tabindex: '-1' }, poster(a.profile, 'w185', 'poster')),
+        el('div', {},
+          el('div', {}, el('a', { href: `#/actor/${a.tmdbId}` }, el('b', {}, a.name))),
+          el('ul', { class: 'update-lines' }, a.news.map((c) => {
+            const mine = listShowFor(c);
+            return el('li', {}, el('a', { href: titleHash(c, `Actor: ${a.name}`) }, c.title), ` ${c.year || 'no date yet'} · ${c.type === 'tv' ? 'TV' : 'Movie'}`,
+              mine ? el('span', { class: 'muted' }, ` · on your list${mine.status ? ` (${mine.status})` : ''}`) : null,
+              ' ', el('button', { class: 'linklike small', onclick: () => dismiss([`${c.type}:${c.id}`]) }, 'dismiss'));
+          })))),
+      el('div', { class: 'btn-row' }, el('button', { class: 'btn small ghost', onclick: () => dismiss(a.news.map((c) => `${c.type}:${c.id}`)) }, 'Dismiss all')));
   }
 
   const onProgress = () => {

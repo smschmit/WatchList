@@ -426,3 +426,7 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .on-list { color: var(--text); }
 .actors-page .find-input { flex: 1 1 260px; }
 .actors-page h2 { margin-top: 1rem; }
+.watch-chip.mine { border-color: var(--watching); background: var(--watching-bg); }
+.mine-mark { color: var(--watching); font-weight: 700; margin-left: .15rem; }
+.svc-picker { margin-top: .5rem; }
+.svc-picker .watch-chip { cursor: pointer; }

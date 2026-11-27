@@ -51,7 +51,7 @@ export function viewShow(r) {
       s.showStatus || s.structure || s.country ? el('p', { class: 'small' },
         [s.showStatus && `Show status: ${s.showStatus}`, s.structure, [s.country, s.languages.join(', ')].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')) : null,
       factsLine(s),
-      whereToWatch(s.tmdb),
+      whereToWatch(s.tmdb, s),
       chips('genre', s.genres), sourcedFields(s), chips('tag', s.tags),
       descriptionBox(s),
       el('div', { class: 'fields' }, field('status', 'My status'), field('want', 'Want to watch?'), field('recommend', 'Use to recommend'), ratingField(s)),

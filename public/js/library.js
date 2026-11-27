@@ -56,8 +56,8 @@ export function noteNewCredits(a, fresh) {
   a.news = [...news, ...found.filter((c) => !have.has(`${c.type}:${c.id}`)).map((c) => ({ ...c, at: today() }))];
   return found;
 }
-export async function refreshCredits(a, { quiet = false } = {}) {
-  const person = await getPerson(a.tmdbId);
+export async function refreshCredits(a, { quiet = false, fresh = false } = {}) {
+  const person = await getPerson(a.tmdbId, { fresh });
   noteNewCredits(a, person.credits);
   a.credits = slimCredits(person.credits);
   a.creditsAt = today();

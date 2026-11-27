@@ -11,6 +11,7 @@ export function viewBrowse() {
   wrap.append(el('p', { class: 'muted' }, `${state.shows.length} titles. Tap any value to see those shows; add more filters from there.`,
     el('span', { class: 'edit-only' }, ' ', el('a', { href: '#/tags/deck' }, `Tag Deck (${state.shows.filter((s) => s.tagsReviewedAt).length} of ${state.shows.length} reviewed)`))));
   for (const cat of CATS) {
+    if (cat.hideIf && cat.hideIf()) continue;
     const entries = counts(cat, state.shows);
     if (!entries.length) {
       if (cat.key === 'actor') wrap.append(el('section', { class: 'cat card' }, el('h2', {}, cat.label),
