@@ -1,5 +1,5 @@
 // Account, backup, import and export.
-import { el, toast, download, today } from '../util.js';
+import { el, toast, download, today, storageUsed } from '../util.js';
 import { state, setState, normalizeState, save, canEdit } from '../state.js';
 import { totalHours, fieldOf } from '../shows.js';
 import { favNamesFor, SORTS } from '../categories.js';
@@ -65,6 +65,40 @@ export function importFile(file) {
   };
   reader.readAsText(file);
 }
+// How much each part takes on this device, and how much of the list is TMDB-derived rather than typed by you.
+// Step 1 of the storage plan: decides whether facts/sourced/credits should move out of the synced list.
+const mb = (n) => `${(n / 1048576).toFixed(2)} MB`;
+const kb = (n) => (n >= 1048576 ? mb(n) : `${Math.round(n / 1024)} KB`);
+export function storageReport() {
+  const keys = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); keys.push([k, ((localStorage.getItem(k) || '').length + k.length) * 2]); } } catch {}
+  keys.sort((a, b) => b[1] - a[1]);
+  const size = (v) => (v == null ? 0 : JSON.stringify(v).length * 2);
+  const parts = { 'TMDB facts (Updates)': 0, 'Sourced fields and keywords': 0, 'Where to watch': 0, 'Favorite actors\' credits': 0 };
+  for (const sh of state.shows) {
+    parts['TMDB facts (Updates)'] += size(sh.facts);
+    parts['Sourced fields and keywords'] += size(sh.sourced);
+    parts['Where to watch'] += size(sh.watch);
+  }
+  for (const a of state.actors) parts['Favorite actors\' credits'] += size(a.credits);
+  const total = size(state);
+  const derived = Object.values(parts).reduce((a, b) => a + b, 0);
+  return { keys, parts, total, derived, used: storageUsed() };
+}
+function storageSection() {
+  const box = el('div');
+  const draw = () => {
+    const r = storageReport();
+    box.replaceChildren(
+      el('p', { class: 'small' }, `This device keeps ${mb(r.used)} for the app (browsers allow about 5 MB). The list itself is ${kb(r.total)}, of which ${kb(r.derived)} (${Math.round((r.derived / Math.max(1, r.total)) * 100)}%) is TMDB-derived.`),
+      el('table', { class: 'small tally' },
+        el('tr', {}, el('th', {}, 'On this device'), el('th', {}, '')), ...r.keys.map(([k, n]) => el('tr', {}, el('td', {}, k.replace(/^watchlist:/, '')), el('td', {}, kb(n)))),
+        el('tr', {}, el('th', {}, 'In the list'), el('th', {}, '')), ...Object.entries(r.parts).map(([k, n]) => el('tr', {}, el('td', {}, k), el('td', {}, kb(n))))),
+      el('button', { class: 'btn small', onclick: () => { console.table(r.keys); download(`watch-list-storage-${today()}.json`, JSON.stringify(r, null, 1), 'application/json'); } }, 'Download this report'));
+  };
+  const details = el('details', { ontoggle: () => { if (details.open) draw(); } }, el('summary', {}, 'Storage on this device'), box);
+  return details;
+}
 export function viewAccount() {
   const file = el('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: (e) => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ''; } });
   const sheetBtn = el('button', { class: 'btn primary', onclick: () => exportToSheet(sheetBtn) }, 'Update Google Sheet');
@@ -80,6 +114,9 @@ export function viewAccount() {
         el('a', { class: 'btn', href: '#/link' }, unlinked ? 'Link titles' : 'Review links'),
         el('a', { class: 'btn', href: '#/fill' }, 'Fill from TMDB')),
       el('p', { class: 'muted small' }, 'Fill from TMDB adds Fiction, Tone, Setting and Era (from TMDB and Wikidata), and Country and Language where blank.')),
+    el('section', { class: 'card edit-only' }, el('h2', {}, 'Suggestions'),
+      el('p', { class: 'small' }, 'Titles you might like, from TMDB’s recommendations for your Top 50 and highest-rated titles, kept apart from your list.'),
+      el('a', { class: 'btn', href: '#/suggestions' }, 'Suggestions')),
     el('section', { class: 'card' }, el('h2', {}, 'Where to watch'),
       el('p', { class: 'small' }, `Region: ${regionLabel(watchRegion())}. ${myServices().length ? `Your services: ${myServices().join(', ')}.` : 'No services picked yet.'} `,
         `${state.shows.filter((s) => s.watch).length} titles checked.`),
@@ -94,5 +131,6 @@ export function viewAccount() {
         el('button', { class: 'btn', onclick: () => download(`watch-list-backup-${today()}.json`, JSON.stringify(state, null, 1), 'application/json') }, 'Download backup'),
         el('button', { class: 'btn edit-only', onclick: () => file.click() }, 'Import backup…'), file),
       el('p', { class: 'muted small' }, 'Update Google Sheet overwrites the “Watch list (app)” tab with the current list. Edits made in the sheet don’t come back into the app.')),
+    el('section', { class: 'card' }, storageSection()),
     el('p', { class: 'muted small' }, `Version ${APP_VERSION}. Show data and images from TMDB; this app is not endorsed or certified by TMDB. Where to watch data from JustWatch.`));
 }

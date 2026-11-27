@@ -10,7 +10,8 @@ export function viewBrowse() {
   if (!state.shows.length) return emptyState();
   const wrap = el('div', { class: 'browse' });
   wrap.append(el('p', { class: 'muted' }, `${state.shows.length} titles. Tap any value to see those shows; add more filters from there.`,
-    el('span', { class: 'edit-only' }, ' ', el('a', { href: '#/tags/deck' }, `Tag Deck (${state.shows.filter((s) => s.tagsReviewedAt).length} of ${state.shows.length} reviewed)`))));
+    el('span', { class: 'edit-only' }, ' ', el('a', { href: '#/tags/deck' }, `Tag Deck (${state.shows.filter((s) => s.tagsReviewedAt).length} of ${state.shows.length} reviewed)`),
+      ' · ', el('a', { href: '#/suggestions' }, 'Suggestions'))));
   const strip = collectionsStrip();
   if (strip) wrap.append(strip);
   for (const cat of CATS) {

@@ -1,6 +1,6 @@
 # Watch List: to do
 
-Remaining plan for future features. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, the Updates page with a manual check button, the Fiction / Tone / Era / Setting fields with Fill from TMDB, Tag cleanup, the Tag Deck, and spoiler-safe show images.
+Remaining plan for future features. v0.8.0 built most of this file; see `TEST-CHECKLIST.md` for what to try by hand. Done so far: module split (`public/js/`), TMDB facts kept apart from your Show status, the Updates page with a manual check button, the Fiction / Tone / Era / Setting fields with Fill from TMDB, Tag cleanup, the Tag Deck, and spoiler-safe show images.
 
 ## Next up
 
@@ -8,18 +8,15 @@ Remaining plan for future features. Done so far: module split (`public/js/`), TM
 - [x] **Link the remaining TV shows to TMDB.** Almost all done; a few left (Account → TMDB → Link titles).
 - [x] **Work through the first "Show status to review" list.** Done.
 
-- [ ] **Plan: make Updates checks faster.** Finished shows are now always checked (about 310 more shows per run), so a full check is slow. Ideas to weigh, not decided:
-  - Check ended/canceled Finished shows less often (e.g. once a month) instead of every run.
-  - Use TMDB's `/tv/changes` feed to check only shows that changed since the last run.
-  - Run more checks at once than the current 4.
-  - Run checks in the background on a schedule (Netlify scheduled function) so the page shows results instead of waiting.
+- [x] **Make Updates checks faster (v0.8.0).** Finished shows TMDB already has as ended/canceled are rechecked once a month instead of every run; 6 checks run at once instead of 4.
+  - Not done: TMDB's `/tv/changes` feed (it lists every changed show on TMDB, many pages a day, so it may cost more calls than it saves) and a scheduled background check (needs a Supabase admin key as a Netlify secret; see Automatic checks below).
 
 ## Fields and tags (next steps)
 
 - [ ] **Fill from TMDB: fill the rest.** Try 10 looked fine; next, run **Fill N shows** (Account → TMDB → Fill from TMDB). Tested on 99 of your shows: Setting came from Wikidata for 42%, TMDB keywords 16%, nothing 43%; Era from Wikidata 8%, keywords 19%, a Present day guess 60%, nothing 13%; Tone from keywords 13%, genres 12%, nothing 74%.
 - [ ] **Tag cleanup in this order:** merge spellings → remove genre repeats → move Fiction/Tone tags → answer the ambiguous ones → remove setting, era and origin tags (after the fill) → one-offs.
 - [x] **Tag Deck felt like too much (v0.6.1):** shows now come in random order (unreviewed first), and Fiction / Tone / Era / Setting etc. are folded into a closed **Fields** section, so a card is mostly tags. Check whether that's enough, or whether Tag Mode replaces it.
-- [ ] **Tag Mode (next).** Pick one tag and swipe through shows that might fit it; right adds the tag, left skips. Likely closer to what you want than the deck. To decide: how candidates are found (TMDB keywords, shows similar to ones already tagged, genre), and whether "no" is remembered.
+- [x] **Tag Mode (v0.8.0).** `#/tags/mode`: pick one tag, swipe through likely shows. Candidates: a TMDB keyword matching the tag, plus tags, genres and favorite actors that tend to go with it on shows that have it. "No" is remembered per tag (`state.tagNo`), with Forget. Works best after Fill from TMDB has saved keywords.
 
 ## Show images (spoiler-safe)
 
@@ -47,14 +44,14 @@ Pull more images from TMDB, which the app already uses, without spoiling unwatch
 ### Still open
 
 - [x] **Try it on real data.** Images look good.
-- [ ] Decide whether the sheet export (`apps-script/`) should include a Spoilers column. Left out for now.
-- [ ] Stills use one image per episode (what the season lookup returns). More per episode would need `/tv/{id}/season/{n}/episode/{e}/images`, one call per episode.
+- [x] Sheet export includes a Spoilers column (v0.8.0).
+- [ ] Stills use one image per episode (what the season lookup returns). More per episode would need `/tv/{id}/season/{n}/episode/{e}/images`, one call per episode. Left as is.
 
 ### Maybe later
 
 - A "Spoilers on" filter in the browse view.
 - Extra actor headshots from `/person/{id}/images`.
-- Track a current episode per show and unlock stills up to that point.
+- ~~Track a current episode per show and unlock stills up to that point.~~ Built with Episodes (v0.8.0).
 
 Other image sources if TMDB falls short: TVmaze (free, no key, character photos, CC BY-SA attribution) and Fanart.tv (free key, logos and art).
 
@@ -86,18 +83,18 @@ Show where each title is streaming, renting or for sale, and answer the main que
 
 - [x] **1. Show page line, live only (v0.7.6).** Proxy allows `/{tv|movie}/{id}/watch/providers` and `/watch/providers/{tv|movie}`; `public/js/watch.js` shows Stream / Free / Rent or buy on show and title pages (US), cached on the device for a day; plans and Amazon/Apple/Roku channels folded into one service; JustWatch credit on the block, Account page and README. A service in both Free and Stream is listed under Free only.
   - [ ] Try it on real shows after deploy; check the folding (live-TV services like YouTube TV, TBS, Spectrum also show under Stream, which step 2's My services highlighting should make less noisy).
-- [ ] **2. Region and My services.** Account section with the provider picker; show page highlights yours.
-- [ ] **3. Stored snapshot, bulk check, browse categories.** `show.watch`, `state.providers`, Check where to watch, Where to watch and On my services categories.
-- [ ] **4. Updates integration.** Now on / left your services.
+- [x] **2. Region and My services (v0.8.0).** `#/watch` (Account → Where to watch): region picker and the services picker; show pages highlight yours.
+- [x] **3. Stored snapshot, bulk check, browse categories (v0.8.0).** `show.watch` stores service names (not ids, so no `state.providers` map is needed), Check where to watch with Try 10 first, On my services and Where to watch categories. On my services also has Free and Other services values.
+- [x] **4. Updates integration (v0.8.0).** Now on / Left your services, for Want to Watch, Restart Planned, Waiting… and Ready titles.
 
 ### Open decisions
 
-- [ ] **Region:** US only, or should a second region be checkable (e.g. UK, for the BBC / Channel 4 / ITV titles)? Adds a picker and doubles bulk calls.
-- [ ] **Rent and buy:** show them at all? They're on almost every title and add noise. Proposed: collapsed on the show page, left out of browse.
-- [ ] **Stored on each show (synced) or on this device only?** Stored is needed for browse and Updates; device-only keeps the synced list smaller. Proposed: stored, ids only (a few bytes per show).
-- [ ] **Sheet export:** add a "Where to watch" column with your services' names?
+- [x] **Region:** one region for the list, changeable (US default). A second region at once is not built.
+- [x] **Rent and buy:** collapsed on the show page, left out of browse (as proposed).
+- [x] **Stored on each show:** yes, service names.
+- [x] **Sheet export:** "On My Services" column.
 - [x] **Auto-fill Network from it?** Decided no: the original network and today's streamers are separate facts (The Office: NBC, now Peacock). Network stays your field.
-- [ ] Later: use My services to filter recommendations (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
+- [ ] Later: use My services to filter Suggestions (TMDB `/discover` takes `with_watch_providers` and `watch_region`).
 
 ## Seasons, episodes and where I am
 
@@ -127,14 +124,14 @@ A season → episode guide on TV show pages, and where you are in each show. (So
 
 ### Build order
 
-1. [ ] Episodes card with seasons and episode rows from TMDB, spoiler rules, replaces the stills section (`images.js` → new `episodes.js`).
-2. [ ] `state.progress`, the ✓ per episode, "Up next" in the show header, the status prompts.
-3. [ ] Updates page uses progress; Progress column in CSV and sheet export.
-4. [ ] README, `ASSETS` in `sw.js`, bump `CACHE` and `APP_VERSION`.
+1. [x] Episodes card with seasons and episode rows from TMDB, spoiler rules, replaces the stills section (`episodes.js`, v0.8.0).
+2. [x] `state.progress` (`progress.js`), the ✓ per episode, "Up next" in the show header, the caught-up status prompt. Not built: the "Start at S1 · E1?" prompt when picking Watching (the header already says "Start with S1 · E1").
+3. [x] Updates says "N new episodes since S3 · E8 · resume at S3 · E9"; Progress column in CSV and sheet export.
+4. [x] README, `ASSETS` in `sw.js`, `CACHE` and `APP_VERSION`.
 
 ### Open decisions
 
-- [ ] **Progress model:** last-watched episode (recommended) or a full per-episode checklist (handles skipping around and rewatches, more taps, more data).
+- [x] **Progress model:** last-watched episode (as recommended).
 - [ ] **Importing history:** Netflix has no API, but its viewing activity downloads as a CSV (title like "Show: Season 1: Episode", plus date). An import could match those to TMDB episodes and set progress. One-off or occasional, not real time. Trakt.tv (has an API; a browser extension scrobbles Netflix) is the only route to near-automatic tracking, at the cost of another account.
 
 ### Benched: songs per episode
@@ -163,15 +160,15 @@ Logging a movie you've already watched takes two steps today: **+ Add** (lands a
 
 ### Build order
 
-1. [ ] `addAsFinished` helper in `library.js` (status choice, spoilers for TV, sources passthrough).
-2. [ ] Buttons on the Add page results, title page and actor filmography rows, with the Undo toast.
-3. [ ] Check phone width: actor rows already hold the + Add button; two buttons may need to stack or shrink to icons (✓ / +).
-4. [ ] README line, bump `CACHE` in `public/sw.js` and `APP_VERSION` in `public/js/version.js`.
+1. [x] `addAsFinished` helper in `library.js` (v0.8.0).
+2. [x] Buttons on the Add page results, title page and actor filmography rows (and Suggestions), with Undo.
+3. [x] Phone width: actor rows shrink to + and ✓ icons.
+4. [x] README line, `CACHE` and `APP_VERSION`.
 
 ### Open decisions
 
-- [ ] **Label:** "✓ Seen it" (recommended, reads naturally for movies and TV) or "✓ Finished" (matches the status name exactly).
-- [ ] **TV shows too, or movies only?** Recommended: both. For TV it also turns spoilers on, which is what Finished does anyway. Movies-only would keep TV rows less crowded.
+- [x] **Label:** "✓ Seen it".
+- [x] **TV shows too:** both.
 - [ ] **Remember when you watched it?** There's no watched-date field today. Out of scope unless you want one; it would be a new show field and a CSV/sheet column.
 - [ ] **Long-press / second option for Dropped or Some?** Probably not; keeps it one button.
 
@@ -181,17 +178,13 @@ The usual question on an actor page is "which of these have I seen?" It can be a
 
 ### Proposed
 
-- [ ] **Two preset buttons above the filmography:** **Seen** and **Plan to see**, next to the Filters toggle. Each one sets the My list group to a fixed set of statuses (replacing whatever is picked there; other groups such as Type and Role stay as they are). Tap the lit button again to clear it. Only one can be on at a time.
-- [ ] **Counts on the buttons** ("Seen 7", "Plan to see 3") so the answer shows before tapping, using the same counting as the chips.
-- [ ] **Keep the filter panel honest:** when a preset is on, the matching My list chips show as picked, and editing those chips by hand turns the preset button off.
-- [ ] **Works with "Use as default":** a preset saved as the default (e.g. every actor page opens on Seen) is just the saved My list values, so nothing new is stored.
-- [ ] Bump `APP_VERSION` and `CACHE`; check with a Playwright run.
+- [x] **Seen** and **Plan to see** buttons with counts, built on the My list group, working with Use as default (v0.8.0).
 
 ### Open decisions
 
-- [ ] **Which statuses count as Seen?** Suggested: Finished, Rewatching, Dropped (watched at least some of it), maybe Watching and Some. Should it follow the status options in Account (like the "Turns on spoilers" flag) so a renamed status keeps working?
-- [ ] **Which count as Plan to see?** Suggested: Want to Watch, Restart Planned, Waiting on Release and Now It's Ready. Identified and Recommended probably not.
-- [ ] Should the same two buttons appear on browse lists filtered by a favorite actor?
+- [x] **Seen:** statuses flagged "Turns on spoilers" (so renaming keeps working) plus Watching and Some.
+- [x] **Plan to see:** Want to Watch, Restart Planned, Waiting on Release and Now It's Ready.
+- [ ] Same two buttons on browse lists filtered by a favorite actor? Not built.
 
 ## Search for actors
 
@@ -204,37 +197,33 @@ Today the only way to reach an actor is through a show's cast, and the Actors pa
 
 ### Plan
 
-- [ ] **Search box on the Actors page** (`#/actors?q=…`), shown even with no favorites. Typing filters your favorites by name instantly; TMDB results appear below under "On TMDB", leaving out people already in favorites. Query kept in the URL with `replaceState` + `syncLastHash` (same as the Add page), so Back returns to the results.
-- [ ] **`searchPeoplePage(query, page)` in `public/js/tmdb.js`:** calls `/search/person`, reuses the in-memory `searchCache` with a `person:` key, drops non-Acting results, maps to `{ id, name, profile, knownFor: [up to 3 titles], popularity }` (TMDB's `known_for` comes with the search, no extra calls).
-- [ ] **Person result card:** face, name, "Known for: A, B, C" with titles on your list highlighted. Tap opens `#/actor/:id`; ♡ reuses `heartBtn` from `views/actors.js`.
-- [ ] **Shared search loop:** pull the debounce, stale-request guard and Show more paging out of `tmdbPicker` (`public/js/ui.js`) into a small helper used by both title and people search, instead of copying ~40 lines.
-- [ ] Test with `window.tmdbMock` and a Playwright run; bump `APP_VERSION` and `CACHE`.
+- [x] Built as planned (v0.8.0): search box on the Actors page, `searchPeoplePage`, person result cards, and a shared `pagedSearch` helper in `ui.js` used by title and people search.
 - Note: filtering favorites works for everyone; TMDB results need sign-in, like all lookups.
 
 ## Collections ("my type of sitcoms", "my favorite crime thrillers")
 
-- [ ] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand.
-- [ ] Collections show on the home page above the browse columns.
+- [x] Each collection has a name, a plain-language description, an optional saved filter, and titles pinned in or left out by hand (`state.collections`, v0.8.0).
+- [x] Collections show on the home page above the browse columns; Save as collection on filtered lists; a Collections line on show pages.
 - [x] **Clean up tags at the same time.** Tag cleanup and the Tag Deck are built (see above); collections can use Fiction, Tone, Era and Setting as well as tags.
 - [ ] Later: use the description to sort existing shows into a collection, and to drive "more like this" recommendations.
 
 ## Recommendations
 
-- [ ] **Add a quick rating** (loved / liked / meh) so recommendations have more to go on than Top 50 and Finished vs Dropped.
-- [ ] **Add a Suggestions queue, kept separate from the main list.** Each suggestion has **Add** and **Not interested**, and dismissals are remembered so they don't come back.
-- [ ] **Find candidates using TMDB data only:** TMDB's recommended and similar titles for your Top 50, favorite actors' credits, and discovery by genre or keyword. Drop anything already on the list or dismissed. The TMDB proxy (`netlify/functions/tmdb.mjs`) needs these lookups added to its allowed list.
-- [ ] **Rank candidates:** start with simple overlap scoring against your Top 50 titles. Optionally have Claude rank them with a reason for each (see the open decisions).
+- [x] **Quick rating:** uses the existing 1–5 star My rating (4–5 count as liked, 1–2 against) rather than a new field.
+- [x] **Suggestions queue (v0.8.0)**, `#/suggestions`, kept off the list: + Add, ✓ Seen it, Not interested (remembered in `state.suggestNo`).
+- [x] **Candidates:** TMDB recommendations for your Top 50 / Use to recommend / 4–5 star titles, boosted by favorite actors' credits. Proxy allows `/{tv|movie}/{id}/recommendations` and `/similar`. Not done: discovery by genre or keyword (`/discover`).
+- [x] **Ranking:** overlap scoring with a reason per title. Claude ranking not built; **Copy taste profile** is the cheaper paste-into-Claude route.
 
 ## New titles
 
-- [ ] **Favorite actors' new projects.** Compare each actor's saved credits with TMDB's current ones and add new ones to Updates.
+- [x] **Favorite actors' new projects (v0.8.0).** Any refresh of an actor's credits notes new ones (this year or later, or undated) in `actor.news`; Updates has **Check favorite actors for new projects** and a **New from your favorite actors** section with dismiss.
 - [ ] Optional: list new and trending titles that fit your collections.
 
 ## Open decisions
 
-- [ ] **Where suggestions go:** a separate queue (recommended) or straight onto the list as "Recommended", as now.
+- [x] **Where suggestions go:** a separate queue.
 - [ ] **Claude in the app:** do you want it? It needs an Anthropic API key and costs per use. The cheaper alternative is an "export my taste profile" button to paste into Claude, then importing the results.
-- [ ] **Viewers:** should people you share with see collections and suggestions, or only the list?
+- [x] **Viewers:** see collections read-only; Suggestions is owner-only.
 - [ ] **Automatic checks:** later, optionally, a nightly check plus phone notifications. That needs a Supabase admin key stored as a secret in Netlify, and machine-generated data would then move to its own tables so a background job can't overwrite your edits. For now, the manual button.
 
 ## Device storage (move to IndexedDB)
@@ -248,9 +237,9 @@ The one-document model and the Supabase row are fine for one editor plus viewers
 
 ### Plan
 
-- [ ] **1. Measure (now).** Log the size of each localStorage key, and how much of the list is TMDB-derived (`facts`, `sourced`, actor `credits`) versus what you typed.
+- [x] **1. Measure (v0.8.0).** Account → Storage on this device shows each localStorage key's size and how much of the list is TMDB-derived, with a downloadable report. Next: read it on your phone and laptop.
 - [x] **2. Make storage failures loud (v0.7.22).** When storage is full, saves drop the TMDB cache (and the owner's unused viewer copy) and retry. The TMDB cache is capped at ~1 MB. The "last synced" copy is also kept in memory, so merges stay correct for the rest of the visit, and the sync status shows "⚠ Storage full" with the MB used. Syncing doesn't pause: when the device can't save, the cloud is the only durable copy. Still open: after a reload the merge uses whatever older copy is on the device.
-- [ ] **3. Move device storage to IndexedDB (next few weeks, its own release).** No practical 5 MB cap, saves in the background, stores objects without converting to text. Moves: the list, the "last synced" copy, the viewer copy, the TMDB cache. Small settings (cards/rows) stay in localStorage. Mostly `state.js`, `cloud.js`, `tmdb.js`; startup has to wait for the data before drawing the list. Supabase doesn't change.
+- [ ] **3. Move device storage to IndexedDB (next few weeks, its own release).** Deliberately not bundled into v0.8.0, per this plan. No practical 5 MB cap, saves in the background, stores objects without converting to text. Moves: the list, the "last synced" copy, the viewer copy, the TMDB cache. Small settings (cards/rows) stay in localStorage. Mostly `state.js`, `cloud.js`, `tmdb.js`; startup has to wait for the data before drawing the list. Supabase doesn't change.
   - One-time copy on first load: copy localStorage → IndexedDB, verify, only then clear the old keys; on any failure keep using the old data.
   - Before updating: sync every device so Supabase holds a current copy. After: open the app on each device over the next few days to confirm the copy worked.
   - Bump `APP_VERSION` and `CACHE`.
@@ -270,7 +259,7 @@ Don't reuse the one-document design: images can't live in the JSON, the note cou
 
 Loose ideas, not planned or decided.
 
-- **Shorter hearted-actor lists on long-running shows.** A show like Law & Order can have lots of hearted actors who each turned up for one episode, so the card gets very long. Idea: if more than 5 hearted actors would show, hide the ones who were only in 1 episode (maybe behind a "+N more" link so they're still reachable).
+- ~~**Shorter hearted-actor lists on long-running shows.**~~ Built (v0.8.0): past 5 names, one-episode favorites go behind "+N more". Needs each actor's credits refreshed once (opening their page does it) to know episode counts.
 
 ## Housekeeping
 

@@ -1,22 +1,25 @@
 // Offline cache. Bump CACHE together with APP_VERSION in js/version.js when shipping changes.
 // Every file the app loads must be in ASSETS, or it won't work offline.
-const CACHE = 'watchlist-v42';
+const CACHE = 'watchlist-v43';
 const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest', 'icon.svg',
   'js/categories.js',
   'js/cloud.js',
+  'js/collections.js',
+  'js/episodes.js',
   'js/facts.js',
   'js/fastscroll.js',
-  'js/images.js',
   'js/fill.js',
+  'js/images.js',
   'js/library.js',
   'js/main.js',
   'js/pagetitle.js',
+  'js/progress.js',
   'js/recent.js',
   'js/router.js',
   'js/shows.js',
   'js/sources.js',
-  'js/tagrules.js',
   'js/state.js',
+  'js/tagrules.js',
   'js/tmdb.js',
   'js/ui.js',
   'js/util.js',
@@ -27,16 +30,20 @@ const ASSETS = ['./', 'index.html', 'styles.css', 'config.js', 'vendor/supabase.
   'js/views/actors.js',
   'js/views/add.js',
   'js/views/browse.js',
+  'js/views/collections.js',
   'js/views/deck.js',
   'js/views/fill.js',
   'js/views/link.js',
   'js/views/list.js',
-  'js/views/show.js',
-  'js/views/title.js',
   'js/views/recent.js',
+  'js/views/show.js',
   'js/views/statuses.js',
+  'js/views/suggestions.js',
+  'js/views/tagmode.js',
   'js/views/tags.js',
-  'js/views/updates.js'];
+  'js/views/title.js',
+  'js/views/updates.js',
+  'js/views/watch.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
