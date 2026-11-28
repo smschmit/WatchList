@@ -36,3 +36,8 @@ version number the app should now show once Netlify has deployed `main`:
 - **park it**: commit all current work, even if unfinished, with a "WIP: ..." message, and push it to this
   session's own branch (never `NextVersion` or `main`). Reply with the branch name and a one-line note
   on where things stand so a later session can resume.
+
+## Instructions for the user
+
+- Whenever you give the user steps to follow, include the direct URL wherever one exists (e.g. the
+  GitHub page, Netlify page, Notion page, or settings page), not only a description of where to click.
