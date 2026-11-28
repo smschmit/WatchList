@@ -4,7 +4,8 @@ import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from './stat
 import { isMovie, totalHours, fmtHours, years } from './shows.js';
 import { WANT_ORDER, favNamesFor, statusMenuChoices, statusColors, defaultStatusColor } from './categories.js';
 import { go, listHash } from './router.js';
-import { searchTmdbPage } from './tmdb.js';
+import { searchTmdbPage, getCast } from './tmdb.js';
+import { wireAlsoIn } from './alsoin.js';
 import { toggleFavorite, setStatus } from './library.js';
 
 export const IMG = 'https://image.tmdb.org/t/p/';
@@ -164,6 +165,17 @@ export function personTile(p, sub) {
       el('a', { href: `#/actor/${p.id}`, class: 'person-name' }, p.name),
       sub ? el('div', { class: 'muted small' }, sub) : null),
     heartBtn(p, fav));
+}
+// A title's cast as person tiles, with each actor's other seen/famous titles under them ("Also in").
+export function castGrid(sec, t) {
+  const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));
+  sec.append(grid);
+  getCast(t).then((cast) => {
+    const tiles = cast.map((c) => ({ person: c, tile: personTile(c, c.character + (c.episodes ? ` · ${c.episodes} ep` : '')) }));
+    grid.replaceChildren(...tiles.map((x) => x.tile));
+    if (!cast.length) grid.append(el('p', { class: 'muted' }, 'No cast listed on TMDB.'));
+    else sec.querySelector('h2').after(wireAlsoIn(sec, tiles, t));
+  }).catch((e) => grid.replaceChildren(el('p', { class: 'muted' }, e.message)));
 }
 export function heartBtn(p, fav) {
   return el('button', { class: `heart ${fav ? 'on' : ''}`, 'data-person': String(p.id), title: fav ? 'Remove from favorites' : 'Add to favorites', 'aria-pressed': String(!!fav),

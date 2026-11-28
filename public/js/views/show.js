@@ -5,13 +5,13 @@ import { isMovie, fieldOf, isSourced, setField, SOURCED_KEYS } from '../shows.js
 import { FICTION, TONE, ERA_ORDER } from '../sources.js';
 import { fillOne } from '../fill.js';
 import { stars } from '../categories.js';
-import { getCast, getDetails } from '../tmdb.js';
+import { getDetails } from '../tmdb.js';
 import { linkShow, fillFromTmdb, checkFacts, setStatus } from '../library.js';
 import { imagesSection } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { describeNext, fmtDate, updateFor } from '../facts.js';
 import { pinTitle } from '../pagetitle.js';
-import { chipLink, poster, metaLine, SELECTS, personTile, tmdbPicker, favLine } from '../ui.js';
+import { chipLink, poster, metaLine, SELECTS, castGrid, tmdbPicker, favLine } from '../ui.js';
 import { listHash } from '../router.js';
 import { recordView } from '../recent.js';
 
@@ -185,12 +185,7 @@ export function castSection(s) {
     if (!readOnly) sec.append(tmdbPicker(s.title, isMovie(s) ? 'movie' : 'tv', s.year, (hit) => linkShow(s, hit)));
     return sec;
   }
-  const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));
-  sec.append(grid);
-  getCast(s.tmdb).then((cast) => {
-    grid.replaceChildren(...cast.map((c) => personTile(c, c.character + (c.episodes ? ` · ${c.episodes} ep` : ''))));
-    if (!cast.length) grid.append(el('p', { class: 'muted' }, 'No cast listed on TMDB.'));
-  }).catch((e) => grid.replaceChildren(el('p', { class: 'muted' }, e.message)));
+  castGrid(sec, s.tmdb);
   if (!readOnly) sec.append(el('button', { class: 'btn small ghost', onclick: () => { if (canEdit() && confirm('Unlink from TMDB?')) { s.tmdb = null; save(); } } }, 'Wrong show? Unlink from TMDB'));
   return sec;
 }

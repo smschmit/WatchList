@@ -2,10 +2,10 @@
 import { el, toast } from '../util.js';
 import { readOnly, normShow, listShowFor } from '../state.js';
 import { go, syncLastHash, render } from '../router.js';
-import { getCast, getDetails, detailsToShow } from '../tmdb.js';
+import { getDetails, detailsToShow } from '../tmdb.js';
 import { addFromTmdb, possibleMatch, linkAndFill } from '../library.js';
 import { describeNext } from '../facts.js';
-import { poster, metaLine, personTile, favLine } from '../ui.js';
+import { poster, metaLine, castGrid, favLine } from '../ui.js';
 import { backdropCard } from '../images.js';
 import { whereToWatch } from '../watch.js';
 import { recordView } from '../recent.js';
@@ -65,12 +65,7 @@ export function viewTitle(r) {
     if (location.hash === here) pinTitle(head.querySelector('h1'));
   }).catch((e) => head.replaceChildren(el('p', { class: 'muted' }, e.message)));
   const sec = el('section', { class: 'card cast' }, el('h2', {}, 'Cast'));
-  const grid = el('div', { class: 'cast-grid' }, el('p', { class: 'muted' }, 'Loading cast…'));
-  sec.append(grid);
-  getCast(t).then((cast) => {
-    grid.replaceChildren(...cast.map((c) => personTile(c, c.character + (c.episodes ? ` · ${c.episodes} ep` : ''))));
-    if (!cast.length) grid.append(el('p', { class: 'muted' }, 'No cast listed on TMDB.'));
-  }).catch((e) => grid.replaceChildren(el('p', { class: 'muted' }, e.message)));
+  castGrid(sec, t);
   wrap.append(sec);
   return wrap;
 }

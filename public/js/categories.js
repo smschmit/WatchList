@@ -40,6 +40,9 @@ export const statusNames = () => statusList().map((x) => x.name);
 // Until a status list has been saved with the flag, these names have it.
 export const SPOILER_STATUSES = ['Finished', 'Rewatching', 'Dropped'];
 export const spoilerStatusNames = () => statusList().filter((x) => x.spoilers).map((x) => x.name);
+// Statuses that mean you've watched at least some of it: the spoiler ones (Finished, Rewatching, Dropped by default)
+// plus any status named like Watching, Paused, Restart or Some. Used by "Also in" on cast lists.
+export const seenStatusNames = () => statusList().filter((x) => x.spoilers || /watching|paused|restart|^some$/i.test(x.name)).map((x) => x.name);
 export let statusColors = new Map(); // status name -> color key, rebuilt on render
 // The status menu's choices, worked out once per render: statusList() scans every show, and a full list draws
 // one menu per card, so building it per card was over a million steps.
