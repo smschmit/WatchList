@@ -390,6 +390,8 @@ button.chip { font: inherit; color: inherit; cursor: pointer; }
 .fastscroll.on .fastscroll-thumb { opacity: 1; pointer-events: auto; }
 .fastscroll.dragging .fastscroll-thumb { cursor: grabbing; }
 .fastscroll.dragging .fastscroll-thumb::before { width: 12px; opacity: 1; }
+/* The handle reaches 54px in from the right edge; keep main's content clear of it (less where main's side margin already does). */
+body.fastscroll-room main { padding-right: max(1rem, calc(58px - max(0px, (100vw - 1100px) / 2))); }
 .fastscroll-bubble { position: absolute; right: 52px; transform: translateY(-50%); min-width: 2.6rem; padding: .35rem .7rem; border-radius: 10px;
   background: var(--accent); color: var(--card); font-weight: 700; font-size: 1.15rem; text-align: center; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }
 

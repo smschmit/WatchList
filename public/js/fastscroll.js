@@ -35,8 +35,16 @@ function currentLabel() {
   return '';
 }
 
+// Long pages keep a strip clear on the right (body.fastscroll-room) so the handle never sits on row buttons like + Add.
+function sync() {
+  const on = tall();
+  document.body.classList.toggle('fastscroll-room', on);
+  if (!on) track.hidden = true;
+  return on;
+}
+
 function show() {
-  if (!tall()) { track.hidden = true; return; }
+  if (!sync()) return;
   track.hidden = false;
   layout();
   track.classList.add('on');
@@ -89,5 +97,7 @@ export function startFastScroll() {
 
   window.addEventListener('scroll', () => { if (!dragging) show(); }, { passive: true });
   window.addEventListener('resize', () => { if (!track.hidden) layout(); });
-  window.addEventListener('hashchange', () => { track.classList.remove('on'); track.hidden = !tall(); });
+  window.addEventListener('hashchange', () => { track.classList.remove('on'); track.hidden = true; sync(); });
+  // Pages render and grow after navigation; reserve the strip as soon as one gets tall, not on first scroll.
+  new ResizeObserver(sync).observe(document.body);
 }
