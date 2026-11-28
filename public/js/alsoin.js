@@ -10,7 +10,8 @@ const STORE_KEY = 'watchlist:alsoin';
 const STORE_MAX_CHARS = 300_000;
 const MAX_AGE = 14 * 864e5;
 const PARALLEL = 4;
-const SHOWN = 3; // titles per actor before "+N more"
+const SHOWN = 3; // seen titles per actor before "+N more"
+const FAMOUS_SHOWN = 2; // famous ones you haven't seen
 
 // "Famous": lots of TMDB votes (a stand-in for "I'd have heard of it") and a real part in it.
 // TV gets a lower bar because TV titles get far fewer votes than movies.
@@ -103,23 +104,31 @@ function pick(credits, filter, skip) {
     if (s && (filter === 'list' || seen.has(s.status))) mine.push({ c, s, seen: seen.has(s.status) });
     else if (filter === 'seen-famous' && c.title) famous.push({ c, s, seen: false });
   }
-  mine.sort((a, b) => (b.c.year || 0) - (a.c.year || 0));
+  mine.sort((a, b) => (b.seen - a.seen) || (b.c.year || 0) - (a.c.year || 0));
   famous.sort((a, b) => b.c.voteCount - a.c.voteCount);
-  return [...mine, ...famous];
+  return { mine, famous };
 }
-function alsoLine(pid, credits, filter, skip) {
-  const items = pick(credits, filter, skip);
-  if (!items.length) return null;
-  // Seen titles look like plain links; famous and unseen ones are muted with a dotted underline.
-  const parts = items.slice(0, SHOWN).flatMap(({ c, s, seen }, i) => {
-    const title = s ? s.title : c.title;
+const stop = (e) => e.stopPropagation(); // the tile itself opens the actor page
+function links(items) {
+  return items.flatMap(({ c, s, seen }, i) => {
     const href = s ? `#/show/${encodeURIComponent(s.id)}` : `#/title/${c.type}-${c.id}`;
-    return [i ? ', ' : '', el('a', { href, class: seen ? 'also-mine' : 'also-famous', title: s ? (s.status || 'On your list') : 'Not on your list',
-      onclick: (e) => e.stopPropagation() }, title)];
+    return [i ? ', ' : '', el('a', { href, class: seen ? 'also-seen' : 'also-other', title: s ? (s.status || 'On your list') : 'Not on your list', onclick: stop },
+      s ? s.title : c.title)];
   });
-  const more = items.length - SHOWN;
-  return el('div', { class: 'small also-in' }, 'Also in ', ...parts,
-    more > 0 ? el('a', { href: `#/actor/${pid}`, class: 'muted', onclick: (e) => e.stopPropagation() }, ` +${more} more`) : null);
+}
+// Two lines: what you've seen (or, with "On my list", everything on your list, seen ones in bold),
+// then a smaller grey line of up to 2 famous titles you haven't seen. "+N more" opens the actor page.
+function alsoLines(pid, credits, filter, skip) {
+  const { mine, famous } = pick(credits, filter, skip);
+  if (!mine.length && !famous.length) return null;
+  const more = (n) => (n > 0 ? el('a', { href: `#/actor/${pid}`, class: 'also-more', onclick: stop }, ` +${n} more`) : null);
+  const box = el('div', { class: 'also-in' });
+  if (mine.length) box.append(el('div', { class: 'small also-mine' },
+    filter === 'list' ? 'On your list: ' : el('span', { class: 'also-check', 'aria-label': 'Seen' }, '✓ Seen: '),
+    ...links(mine.slice(0, SHOWN)), more(mine.length - SHOWN)));
+  if (famous.length) box.append(el('div', { class: 'also-famous' }, 'Also in ', ...links(famous.slice(0, FAMOUS_SHOWN)),
+    more(mine.length ? 0 : famous.length - FAMOUS_SHOWN)));
+  return box;
 }
 
 // ---------- On the cast list ----------
@@ -132,7 +141,7 @@ export function wireAlsoIn(section, tiles, t) {
     const entry = tiles.find((x) => x.person.id === pid);
     if (!entry) return;
     const old = entry.tile.querySelector('.also-in');
-    const line = filter === 'off' || !lines.has(pid) ? null : alsoLine(pid, lines.get(pid), filter, t);
+    const line = filter === 'off' || !lines.has(pid) ? null : alsoLines(pid, lines.get(pid), filter, t);
     if (old) old.remove();
     if (line) entry.tile.querySelector('.person-body').append(line);
   };
