@@ -40,6 +40,9 @@ export const statusNames = () => statusList().map((x) => x.name);
 // Until a status list has been saved with the flag, these names have it.
 export const SPOILER_STATUSES = ['Finished', 'Rewatching', 'Dropped'];
 export const spoilerStatusNames = () => statusList().filter((x) => x.spoilers).map((x) => x.name);
+// "Seen": statuses that turn spoilers on (Finished, Rewatching, Dropped unless changed in Status options) plus Watching
+// and Some. Shared by the actor page's Seen preset and "Also in" on cast lists.
+export const seenStatusNames = () => uniq([...spoilerStatusNames(), 'Watching', 'Some']);
 export let statusColors = new Map(); // status name -> color key, rebuilt on render
 // The status menu's choices, worked out once per render: statusList() scans every show, and a full list draws
 // one menu per card, so building it per card was over a million steps.

@@ -1,7 +1,7 @@
 // One actor's page, and the favorite actors page.
-import { el, toast, today, norm, uniq } from '../util.js';
+import { el, toast, today, norm } from '../util.js';
 import { state, readOnly, save, canEdit, actorByTmdb, listShowFor } from '../state.js';
-import { favNamesFor, statusNames, spoilerStatusNames } from '../categories.js';
+import { favNamesFor, statusNames, seenStatusNames } from '../categories.js';
 import { go, listHash, recall, remember, restoreScroll, syncLastHash } from '../router.js';
 import { getPerson, roleTier, knownScore, searchPeoplePage } from '../tmdb.js';
 import { addFromTmdb, addAsFinished, removeShow, slimCredits, noteNewCredits } from '../library.js';
@@ -23,13 +23,11 @@ const GROUPS = [
   { key: 'decade', label: 'Decade', values: (c) => [c.year ? `${Math.floor(c.year / 10) * 10}s` : 'No year'],
     order: (totals) => [...totals.keys()].filter((v) => v !== 'No year').sort().reverse() },
 ];
-// One-tap presets for the My list group. Seen: statuses that turn spoilers on (Finished, Rewatching, Dropped unless
-// changed in Status options) plus Watching and Some. Plan to see: the statuses that mean you mean to watch it.
-const SEEN_EXTRA = ['Watching', 'Some'];
+// One-tap presets for the My list group. Seen: see seenStatusNames. Plan to see: the statuses that mean you mean to watch it.
 const PLAN = ['Want to Watch', 'Restart Planned', "Waiting on Release and Now It's Ready"];
 export function presetStatuses(key) {
   const names = statusNames();
-  const want = key === 'seen' ? uniq([...spoilerStatusNames(), ...SEEN_EXTRA]) : PLAN;
+  const want = key === 'seen' ? seenStatusNames() : PLAN;
   return want.filter((n) => names.includes(n));
 }
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));

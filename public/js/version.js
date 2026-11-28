@@ -1,3 +1,3 @@
 // Bump together with CACHE in sw.js when shipping changes.
 
-export const APP_VERSION = '0.8.0';
+export const APP_VERSION = '0.8.1';

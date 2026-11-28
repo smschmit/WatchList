@@ -139,6 +139,17 @@ button.chip.active { font: inherit; font-size: .88rem; color: var(--text); curso
 .show-card-title { font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .pill { font-size: .72rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; background: var(--bg); white-space: nowrap; }
 .fav-line { color: var(--heart); }
+.also-in { margin-top: .2rem; color: var(--muted); }
+.also-mine { color: var(--text); }
+.also-mine a { color: var(--text); }
+.also-mine a.also-seen { font-weight: 600; }
+.also-check { color: var(--accent, var(--text)); font-weight: 600; }
+.also-famous { font-size: .75rem; margin-top: .1rem; }
+.also-famous a, .also-in a.also-more { color: var(--muted); }
+.also-famous a { text-decoration: underline dotted; text-underline-offset: 2px; }
+.also-in a.also-more { text-decoration: none; white-space: nowrap; }
+.also-filter { display: block; margin: -.2rem 0 .6rem; }
+.also-filter select { font-size: .85rem; }
 .fav-line a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
 .fav-line a:hover { text-decoration-color: currentColor; }
 .poster { width: 46px; height: 69px; border-radius: 6px; object-fit: cover; flex: none; background: var(--line); }
